@@ -9,6 +9,13 @@ RUN npx prisma generate
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
+ARG DATABASE_URL=file:./data/dev.db
+ARG AUTH_SECRET=build-time-secret
+ARG GEMINI_API_KEY=
+ENV DATABASE_URL=${DATABASE_URL}
+ENV AUTH_SECRET=${AUTH_SECRET}
+ENV GEMINI_API_KEY=${GEMINI_API_KEY}
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
 COPY package.json package-lock.json ./
