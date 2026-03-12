@@ -76,6 +76,21 @@ export async function POST(request: Request) {
         continue;
       }
 
+      const existingPhone = await prisma.customer.findFirst({
+        where: { phone },
+        select: { id: true },
+      });
+
+      if (existingPhone) {
+        results.failed++;
+        results.errors.push({
+          row: rowNumber,
+          kodKV,
+          error: 'No Phone telah diguna',
+        });
+        continue;
+      }
+
       try {
         // Create customer
         await prisma.customer.create({

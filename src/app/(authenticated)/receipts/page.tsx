@@ -1,6 +1,5 @@
 "use client";
 
-// Receipts page component
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +23,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { ReceiptDraft, ReceiptPerkaraOption, ReceiptTajukOption } from '@/lib/types';
-import { Download, RotateCcw, Save, Trash2, Upload } from 'lucide-react';
+import { Printer, RotateCcw, Save, Trash2 } from 'lucide-react';
 import { CustomerAutocomplete } from '@/components/customer-autocomplete';
 import { KVAutocomplete } from '@/components/kv-autocomplete';
 import {
@@ -38,7 +37,7 @@ import {
 
 const toCurrency = (value: number) => `RM ${value.toFixed(2)}`;
 
-export default function ReceiptsPage() {
+export default function ResitTestPage() {
   const [noResit, setNoResit] = useState('');
   const [noSeriSebatHarga, setNoSeriSebatHarga] = useState('');
   const [namaPenerima, setNamaPenerima] = useState('');
@@ -63,9 +62,8 @@ export default function ReceiptsPage() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isSavingPerkaraOption, setIsSavingPerkaraOption] = useState(false);
   const [isSavingTajukOption, setIsSavingTajukOption] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdfZip, setIsExportingPdfZip] = useState(false);
   const [isClearingDrafts, setIsClearingDrafts] = useState(false);
-  const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
   const [isResettingNoResit, setIsResettingNoResit] = useState(false);
   const [isResettingSebatHarga, setIsResettingSebatHarga] = useState(false);
   const [resetStartNo, setResetStartNo] = useState('1');
@@ -386,87 +384,6 @@ export default function ReceiptsPage() {
     }
   };
 
-  const handleDownloadTemplate = async () => {
-    try {
-      const response = await fetch('/api/receipts/template/download', { method: 'GET' });
-
-      if (!response.ok) {
-        toast({
-          title: 'Muat Turun Gagal',
-          description: 'Tidak dapat memuat turun template.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = 'resit-template.xlsx';
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: 'Template Dimuat Turun',
-        description: 'Fail template berjaya dimuat turun. Semak struktur dan muat naik semula apabila siap.',
-      });
-    } catch {
-      toast({
-        title: 'Muat Turun Gagal',
-        description: 'Ralat semasa muat turun fail template.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleUploadTemplate = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.xlsx')) {
-      toast({
-        title: 'Fail Tidak Sah',
-        description: 'Sila muat naik fail Excel (.xlsx) sahaja.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsUploadingTemplate(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await fetch('/api/receipts/template/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        toast({
-          title: 'Muat Naik Gagal',
-          description: data.error ?? 'Tidak dapat memuat naik template.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      toast({
-        title: 'Template Dimuat Naik',
-        description: 'Template baharu berjaya dimuat naik. Anda kini boleh eksport resit.',
-      });
-    } catch {
-      toast({
-        title: 'Muat Naik Gagal',
-        description: 'Ralat semasa muat naik fail template.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUploadingTemplate(false);
-    }
-  };
-
   const handleSelectCustomer = (customer: { id: string; name: string; kodKV: string }) => {
     setNamaPenerima(customer.name);
     handleFillNamaKV(customer.kodKV);
@@ -479,50 +396,6 @@ export default function ReceiptsPage() {
   const handleSelectKV = (item: { id: string; name: string; kodKV: string }) => {
     setNamaKolejVokasional(item.kodKV);
     setNamaPenerima(item.name);
-  };
-
-  const handleExportXlsx = async () => {
-    setIsExporting(true);
-    try {
-      const response = await fetch('/api/receipts/export', { method: 'GET' });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        toast({
-          title: 'Eksport Gagal',
-          description: data.error ?? 'Tidak dapat mengeksport fail resit.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const blob = await response.blob();
-      const contentDisposition = response.headers.get('content-disposition') ?? '';
-      const matchedName = contentDisposition.match(/filename="?([^\"]+)"?/i)?.[1];
-      const fileName = matchedName ?? `resit-export-${Date.now()}.xlsx`;
-
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: 'Eksport Berjaya',
-        description: 'Fail export berjaya dijana mengikut template.',
-      });
-    } catch {
-      toast({
-        title: 'Eksport Gagal',
-        description: 'Ralat rangkaian/pelayan semasa eksport XLSX.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsExporting(false);
-    }
   };
 
   const handleResetNoResit = async () => {
@@ -544,7 +417,6 @@ export default function ReceiptsPage() {
         body: JSON.stringify({ startNo: value, resetType: 'resit' }),
       });
 
-      // Backward-compatible fallback if browser still serves older JS bundle.
       if (!response.ok && response.status === 404) {
         response = await fetch('/api/receipts/reset-counter', {
           method: 'POST',
@@ -636,60 +508,60 @@ export default function ReceiptsPage() {
     }
   };
 
+  const handleExportDraftPdfZip = async () => {
+    setIsExportingPdfZip(true);
+    try {
+      const response = await fetch('/api/receipts/export-pdf', { method: 'GET' });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        toast({
+          title: 'Eksport PDF Gagal',
+          description: data.error ?? 'Tidak dapat menjana fail PDF ZIP.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('content-disposition') ?? '';
+      const matchedName = contentDisposition.match(/filename="?([^\"]+)"?/i)?.[1];
+      const fileName = matchedName ?? `invoice-pdf-export-${Date.now()}.zip`;
+
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Eksport PDF Berjaya',
+        description: 'Semua draft telah dijana sebagai PDF dan dimuat turun dalam fail ZIP.',
+      });
+    } catch {
+      toast({
+        title: 'Eksport PDF Gagal',
+        description: 'Ralat rangkaian/pelayan semasa eksport PDF ZIP.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExportingPdfZip(false);
+    }
+  };
+
   return (
-    <div className="animate-fade-in">
-      <PageHeader
-        title="Generate Resit"
-        description="Isi maklumat resit dan simpan ke senarai sebelum eksport." 
-      />
+    <div className="animate-fade-in print:animate-none">
+      <div className="print:hidden">
+        <PageHeader
+          title="Generate Resit"
+          description="Isi maklumat resit, simpan ke draft, dan eksport PDF ZIP."
+        />
+      </div>
 
-      <Card className="border-none shadow-sm mb-6 bg-blue-50/50">
-        <CardHeader>
-          <CardTitle className="text-base">Pengurusan Template</CardTitle>
-          <CardDescription>Muat turun template semasa untuk semakan, atau muat naik template anda sendiri.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex gap-2">
-          <Button type="button" variant="outline" onClick={handleDownloadTemplate}>
-            <Download size={16} className="mr-2" />
-            Muat Turun Template
-          </Button>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button type="button" variant="outline">
-                <Upload size={16} className="mr-2" />
-                Muat Naik Template
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Muat Naik Template Baharu</DialogTitle>
-                <DialogDescription>Muat naik template Excel (.xlsx) yang telah disediakan. Data borang akan diisi ke sel yang dipetakan.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                  <input
-                    type="file"
-                    accept=".xlsx"
-                    disabled={isUploadingTemplate}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleUploadTemplate(file);
-                      }
-                    }}
-                    className="w-full"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Template perlu mempunyai pemetaan sel berikut: M9 (No Resit), B9 (Nama), B10 (Kolej), B13 (Tajuk/Perkara), B21 (Perkara), H21 (Kuantiti), J21 (Harga/Seunit), M26 (Postage), M33 (Jumlah), M10 (Tarikh)
-                </p>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </CardContent>
-      </Card>
-
-      <form onSubmit={handleSaveDraft} className="space-y-6">
+      <form onSubmit={handleSaveDraft} className="space-y-6 print:hidden">
         <Card className="border-none shadow-sm">
           <CardHeader>
             <CardTitle>Maklumat Resit</CardTitle>
@@ -946,19 +818,19 @@ export default function ReceiptsPage() {
         </Card>
       </form>
 
-      <Card className="mt-6 border-none shadow-sm">
+      <Card className="mt-6 border-none shadow-sm print:hidden">
         <CardHeader>
           <CardTitle>Senarai Draft Resit</CardTitle>
-          <CardDescription>Resit yang telah disimpan sebelum export.</CardDescription>
+          <CardDescription>Resit yang telah disimpan untuk ujian mapping PDF seterusnya.</CardDescription>
           <div className="flex flex-wrap gap-2 pt-2">
             <Button
               type="button"
               className="gap-2"
-              onClick={handleExportXlsx}
-              disabled={isExporting || receiptDrafts.length === 0}
+              onClick={handleExportDraftPdfZip}
+              disabled={isExportingPdfZip || receiptDrafts.length === 0}
             >
-              <Download size={16} />
-              {isExporting ? 'Mengeksport...' : `Eksport XLSX (${receiptDrafts.length})`}
+              <Printer size={16} />
+              {isExportingPdfZip ? 'Menjana PDF ZIP...' : `Eksport PDF ZIP (${receiptDrafts.length})`}
             </Button>
             <Button
               type="button"
@@ -980,8 +852,6 @@ export default function ReceiptsPage() {
                   <TableHead>No Resit</TableHead>
                   <TableHead>Penerima</TableHead>
                   <TableHead>Kolej</TableHead>
-                  <TableHead>Tajuk</TableHead>
-                  <TableHead>Perkara</TableHead>
                   <TableHead>Tarikh</TableHead>
                   <TableHead>Semester</TableHead>
                   <TableHead className="text-right">Jumlah</TableHead>
@@ -991,7 +861,7 @@ export default function ReceiptsPage() {
               <TableBody>
                 {receiptDrafts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                       Belum ada draft resit.
                     </TableCell>
                   </TableRow>
@@ -1003,8 +873,6 @@ export default function ReceiptsPage() {
                         <TableCell className="font-medium">{item.noResit}</TableCell>
                         <TableCell className="font-medium">{item.namaPenerima}</TableCell>
                         <TableCell>{item.namaKolejVokasional}</TableCell>
-                        <TableCell>{item.tajuk}</TableCell>
-                        <TableCell>{item.perkara}</TableCell>
                         <TableCell>{new Date(item.tarikh).toLocaleDateString()}</TableCell>
                         <TableCell>{item.semester}</TableCell>
                         <TableCell className="text-right">{toCurrency(total)}</TableCell>
@@ -1025,4 +893,3 @@ export default function ReceiptsPage() {
     </div>
   );
 }
-

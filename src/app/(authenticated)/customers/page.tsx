@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Edit, Trash2, UserPlus, Upload } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, UserPlus, Upload, Download } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth-context';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +51,7 @@ export default function CustomersPage() {
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
   const [selectedCustomerIds, setSelectedCustomerIds] = useState<string[]>([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState<'all' | 'name' | 'postcode' | 'phone' | 'kodKV'>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -204,6 +205,50 @@ export default function CustomersPage() {
     });
   };
 
+  const handleExportCustomers = async () => {
+    setIsExporting(true);
+    try {
+      const response = await fetch('/api/customers/export', { method: 'GET' });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        toast({
+          title: 'Export Gagal',
+          description: data.error ?? 'Tidak dapat export data pelanggan.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('content-disposition') ?? '';
+      const matchedName = contentDisposition.match(/filename="?([^\"]+)"?/i)?.[1];
+      const fileName = matchedName ?? `customers-export-${Date.now()}.xlsx`;
+
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Export Berjaya',
+        description: 'Data pelanggan berjaya diexport ke fail Excel.',
+      });
+    } catch {
+      toast({
+        title: 'Export Gagal',
+        description: 'Ralat rangkaian/pelayan semasa export data pelanggan.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -211,6 +256,10 @@ export default function CustomersPage() {
         description="Lihat dan urus semua rekod pelanggan."
         actions={
           <div className="flex gap-2">
+            <Button type="button" variant="outline" className="gap-2" onClick={handleExportCustomers} disabled={isExporting || customers.length === 0}>
+              <Download size={18} />
+              {isExporting ? 'Exporting...' : 'Export Excel'}
+            </Button>
             <Button asChild variant="outline" className="gap-2">
               <Link href="/customers/import">
                 <Upload size={18} />

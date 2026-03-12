@@ -63,6 +63,23 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
+  if (data.phone) {
+    const existingPhone = await prisma.customer.findFirst({
+      where: {
+        phone: data.phone,
+        id: { not: id },
+      },
+      select: { id: true },
+    });
+
+    if (existingPhone) {
+      return NextResponse.json(
+        { error: 'No Phone telah diguna' },
+        { status: 409 }
+      );
+    }
+  }
+
   try {
     const customer = await prisma.customer.update({
       where: { id },

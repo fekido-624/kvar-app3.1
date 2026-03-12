@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { UserRole } from '@/lib/types';
 
 const SESSION_COOKIE = 'accesspilot_session';
-const ONE_WEEK_SECONDS = 60 * 60 * 24 * 7;
+const SESSION_MAX_AGE_SECONDS = 60 * 5;
 
 type SessionPayload = {
   userId: string;
@@ -50,7 +50,7 @@ export const createSession = async (userId: string) => {
   const token = await new SignJWT({ userId } satisfies SessionPayload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime(`${ONE_WEEK_SECONDS}s`)
+    .setExpirationTime(`${SESSION_MAX_AGE_SECONDS}s`)
     .sign(getJwtSecret());
 
   const cookieStore = await cookies();
@@ -59,7 +59,7 @@ export const createSession = async (userId: string) => {
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     path: '/',
-    maxAge: ONE_WEEK_SECONDS,
+    maxAge: SESSION_MAX_AGE_SECONDS,
   });
 };
 

@@ -27,9 +27,11 @@ export default function AuthenticatedLayout({
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <div className="print:hidden">
+        <AppSidebar />
+      </div>
       <SidebarInset className="bg-background">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-card/30 backdrop-blur-md sticky top-0 z-0 px-4 transition-all duration-300 ease-in-out">
+        <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center gap-2 border-b bg-card/95 backdrop-blur-md px-4 transition-all duration-300 ease-in-out print:hidden">
           <SidebarTrigger />
           <div className="ml-auto flex items-center gap-4">
             <div className="text-sm font-medium text-muted-foreground">
@@ -37,8 +39,8 @@ export default function AuthenticatedLayout({
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-4 md:p-8">
-          <div className="mx-auto max-w-6xl w-full">
+        <main className="flex-1 overflow-auto p-4 md:p-8 print:overflow-visible print:p-0">
+          <div className="mx-auto max-w-6xl w-full print:max-w-none">
             {children}
           </div>
         </main>

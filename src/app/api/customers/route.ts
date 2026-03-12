@@ -51,6 +51,18 @@ export async function POST(request: Request) {
 
   const data = parsed.data;
 
+  const existingPhone = await prisma.customer.findFirst({
+    where: { phone: data.phone },
+    select: { id: true },
+  });
+
+  if (existingPhone) {
+    return NextResponse.json(
+      { error: 'No Phone telah diguna' },
+      { status: 409 }
+    );
+  }
+
   const customer = await prisma.customer.create({
     data: {
       name: data.name,

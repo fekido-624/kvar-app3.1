@@ -65,3 +65,40 @@
     @apply bg-background text-foreground font-body;
   }
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .receipt-print-root {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: #fff !important;
+  }
+
+  .receipt-print-sheet {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 10mm 14mm 10mm 14mm !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+}
