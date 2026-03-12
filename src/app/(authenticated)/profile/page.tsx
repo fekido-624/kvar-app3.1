@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { useAuth } from '@/components/auth-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -147,9 +148,8 @@ export default function ProfilePage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="password">Kata Laluan Baharu</Label>
-                  <Input 
+                  <PasswordInput 
                     id="password" 
-                    type="password" 
                     placeholder="Biarkan kosong jika kekal semasa" 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -198,7 +199,7 @@ export default function CreateUserPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Kata Laluan Awal</Label>
-                <Input 
+                <PasswordInput 
                   id="password" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 

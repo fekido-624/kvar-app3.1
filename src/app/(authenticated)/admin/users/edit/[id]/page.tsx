@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/password-input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -169,9 +170,8 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
             <CardContent>
               <div className="space-y-2">
                 <Label htmlFor="password">Kata Laluan Baharu</Label>
-                <Input 
+                <PasswordInput 
                   id="password" 
-                  type="password"
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
                   placeholder="Biarkan kosong jika tiada perubahan"
