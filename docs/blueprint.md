@@ -2,7 +2,7 @@
 
 ## Project Handoff (Keep Updated)
 
-- Latest stable commit: `47a67ed`
+- Latest stable commit: `3f63196`
 - Main branch: `main`
 - Production deploy host: TrueNAS SCALE
 - Deploy path (NAS): `/mnt/fekidopool/Web-App/Apps/KVar`
@@ -17,6 +17,13 @@
 	- API returns `No Phone telah diguna` for duplicates.
 - Session expiry currently set to 5 minutes:
 	- `src/lib/auth.ts:7`
+- Data Parcel drafts persist to SQLite DB (survive refresh):
+	- API: `src/app/api/data-parcel/drafts/route.ts`
+	- Schema model: `DataParcelDraft` in `prisma/schema.prisma`
+	- Raw SQL pattern used (`$executeRawUnsafe`) — same as other runtime tables
+- Password show/hide toggle on all password fields:
+	- Reusable component: `src/components/ui/password-input.tsx`
+	- Applied to: login, create user, edit user, profile pages
 
 ### Resume Prompt (Copy/Paste)
 
@@ -24,7 +31,7 @@ Use this in a new chat to continue safely:
 
 ```text
 Sambung project KVar.
-Latest commit: 7054b1c.
+Latest commit: 3f63196.
 Rujuk docs/blueprint.md (Project Handoff).
 Fokus task: <isi task semasa>.
 Jangan ubah flow sedia ada tanpa confirmation.
