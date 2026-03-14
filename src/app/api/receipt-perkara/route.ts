@@ -14,10 +14,47 @@ export async function GET() {
   }
 
   try {
-    const options = await prisma.receiptPerkaraOption.findMany({
-      orderBy: { label: 'asc' },
-    });
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Penerbitan" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "perkara" TEXT NOT NULL,
+        "tajuk" TEXT NOT NULL DEFAULT '',
+        "semester" INTEGER NOT NULL,
+        "tahun" INTEGER NOT NULL,
+        "edisi" INTEGER NOT NULL DEFAULT 1,
+        "hargaSeunit" REAL NOT NULL DEFAULT 0,
+        "catatan" TEXT NOT NULL DEFAULT '',
+        "aktif" INTEGER NOT NULL DEFAULT 1,
+        "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
+    const [manualOptions, penerbitanRows] = await Promise.all([
+      prisma.receiptPerkaraOption.findMany({ orderBy: { label: 'asc' } }),
+      prisma.$queryRawUnsafe(`
+        SELECT "id", "perkara", "createdAt"
+        FROM "Penerbitan"
+        WHERE "aktif" = 1
+        ORDER BY "perkara" ASC
+      `) as Promise<Array<{ id: string; perkara: string; createdAt: string }>>,
+    ]);
+
+    const map = new Map<string, { id: string; label: string; createdAt: string }>();
+    for (const option of manualOptions) {
+      map.set(option.label, option);
+    }
+    for (const row of penerbitanRows) {
+      if (!map.has(row.perkara)) {
+        map.set(row.perkara, {
+          id: `penerbitan-${row.id}`,
+          label: row.perkara,
+          createdAt: row.createdAt,
+        });
+      }
+    }
+
+    const options = Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
     return NextResponse.json({ options });
   } catch (error) {
     return NextResponse.json(

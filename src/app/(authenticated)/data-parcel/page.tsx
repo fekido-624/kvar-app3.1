@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Trash2 } from 'lucide-react';
+import { Archive, Download } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -53,15 +53,16 @@ export default function DataParcelPage() {
   const [entries, setEntries] = useState<ParcelEntry[]>([]);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
-  const [isDeletingDraftId, setIsDeletingDraftId] = useState<string | null>(null);
-  const [isClearingDrafts, setIsClearingDrafts] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [isUpdatingDraftId, setIsUpdatingDraftId] = useState<string | null>(null);
+  const [isUpdatingAllDrafts, setIsUpdatingAllDrafts] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
   const loadDrafts = async () => {
     setIsLoadingDrafts(true);
     try {
-      const response = await fetch('/api/data-parcel/drafts', { cache: 'no-store' });
+      const response = await fetch(`/api/data-parcel/drafts?status=${activeTab}`, { cache: 'no-store' });
       if (!response.ok) {
         return;
       }
@@ -76,7 +77,7 @@ export default function DataParcelPage() {
 
   useEffect(() => {
     loadDrafts();
-  }, []);
+  }, [activeTab]);
 
   const totalParcel = useMemo(
     () => entries.reduce((sum, item) => sum + item.bilanganParcel, 0),
@@ -184,33 +185,45 @@ export default function DataParcelPage() {
     }
   };
 
-  const handleDeleteEntry = async (entryId: string) => {
-    if (isDeletingDraftId) return;
+  const handleUpdateEntryStatus = async (entryId: string, action: 'archive' | 'restore') => {
+    if (isUpdatingDraftId) return;
 
-    setIsDeletingDraftId(entryId);
+    setIsUpdatingDraftId(entryId);
     try {
       const response = await fetch(`/api/data-parcel/drafts/${entryId}`, {
-        method: 'DELETE',
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
       });
 
       if (!response.ok) {
         toast({
-          title: 'Padam gagal',
-          description: 'Tidak dapat padam draft data parcel.',
+          title: action === 'archive' ? 'Arkib gagal' : 'Pulih gagal',
+          description:
+            action === 'archive'
+              ? 'Tidak dapat arkibkan draft data parcel.'
+              : 'Tidak dapat pulihkan draft data parcel.',
           variant: 'destructive',
         });
         return;
       }
 
       await loadDrafts();
+      toast({
+        title: action === 'archive' ? 'Data diarkibkan' : 'Data dipulihkan',
+        description:
+          action === 'archive'
+            ? 'Draft data parcel dipindahkan ke Sejarah.'
+            : 'Draft data parcel dipindahkan ke Semasa.',
+      });
     } catch {
       toast({
-        title: 'Padam gagal',
-        description: 'Ralat network/server semasa padam draft data parcel.',
+        title: action === 'archive' ? 'Arkib gagal' : 'Pulih gagal',
+        description: 'Ralat network/server semasa kemas kini status draft data parcel.',
         variant: 'destructive',
       });
     } finally {
-      setIsDeletingDraftId(null);
+      setIsUpdatingDraftId(null);
     }
   };
 
@@ -275,22 +288,31 @@ export default function DataParcelPage() {
     }
   };
 
-  const handleClearAllDrafts = async () => {
-    if (entries.length === 0 || isClearingDrafts) return;
+  const handleUpdateAllDraftsStatus = async (action: 'archive_all' | 'restore_all') => {
+    if (entries.length === 0 || isUpdatingAllDrafts) return;
 
-    const confirmed = window.confirm('Kosongkan semua draft data parcel dalam senarai ini?');
+    const confirmed = window.confirm(
+      action === 'archive_all'
+        ? 'Pindahkan semua draft semasa ke Sejarah?'
+        : 'Pulihkan semua draft sejarah ke Semasa?'
+    );
     if (!confirmed) return;
 
-    setIsClearingDrafts(true);
+    setIsUpdatingAllDrafts(true);
     try {
       const response = await fetch('/api/data-parcel/drafts', {
-        method: 'DELETE',
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
       });
 
       if (!response.ok) {
         toast({
-          title: 'Kosongkan gagal',
-          description: 'Tidak dapat kosongkan semua draft data parcel.',
+          title: action === 'archive_all' ? 'Arkib gagal' : 'Pulih gagal',
+          description:
+            action === 'archive_all'
+              ? 'Tidak dapat arkibkan semua draft data parcel.'
+              : 'Tidak dapat pulihkan semua draft data parcel.',
           variant: 'destructive',
         });
         return;
@@ -298,17 +320,20 @@ export default function DataParcelPage() {
 
       await loadDrafts();
       toast({
-        title: 'Senarai dikosongkan',
-        description: 'Semua draft data parcel telah dipadam.',
+        title: action === 'archive_all' ? 'Semua draft diarkibkan' : 'Semua draft dipulihkan',
+        description:
+          action === 'archive_all'
+            ? 'Semua draft semasa dipindahkan ke Sejarah.'
+            : 'Semua draft sejarah dipindahkan ke Semasa.',
       });
     } catch {
       toast({
-        title: 'Kosongkan gagal',
-        description: 'Ralat network/server semasa kosongkan draft data parcel.',
+        title: action === 'archive_all' ? 'Arkib gagal' : 'Pulih gagal',
+        description: 'Ralat network/server semasa kemas kini semua draft data parcel.',
         variant: 'destructive',
       });
     } finally {
-      setIsClearingDrafts(false);
+      setIsUpdatingAllDrafts(false);
     }
   };
 
@@ -388,29 +413,53 @@ export default function DataParcelPage() {
           <CardHeader>
             <CardTitle>Senarai Preview Parcel</CardTitle>
             <CardDescription>
-              {entries.length} entri dalam senarai | Jumlah parcel: {totalParcel}
+              {entries.length} entri dalam {activeTab === 'active' ? 'Semasa' : 'Sejarah'} | Jumlah parcel: {totalParcel}
             </CardDescription>
             <div className="pt-2">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
-                  className="gap-2"
-                  onClick={handleExportXlsx}
-                  disabled={isExporting || entries.length === 0}
+                  variant={activeTab === 'active' ? 'default' : 'outline'}
+                  onClick={() => setActiveTab('active')}
                 >
-                  <Download size={16} />
-                  {isExporting ? 'Mengeksport...' : `Eksport XLSX (${entries.length})`}
+                  Semasa
                 </Button>
                 <Button
                   type="button"
-                  variant="destructive"
-                  className="gap-2"
-                  onClick={handleClearAllDrafts}
-                  disabled={isClearingDrafts || entries.length === 0}
+                  variant={activeTab === 'archived' ? 'default' : 'outline'}
+                  onClick={() => setActiveTab('archived')}
                 >
-                  <Trash2 size={16} />
-                  {isClearingDrafts ? 'Mengosongkan...' : 'Kosongkan Draft'}
+                  Sejarah
                 </Button>
+                <div className="ml-auto flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    className="gap-2"
+                    onClick={handleExportXlsx}
+                    disabled={isExporting || entries.length === 0}
+                  >
+                    <Download size={16} />
+                    {isExporting ? 'Mengeksport...' : `Eksport XLSX (${entries.length})`}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() =>
+                      handleUpdateAllDraftsStatus(activeTab === 'active' ? 'archive_all' : 'restore_all')
+                    }
+                    disabled={isUpdatingAllDrafts || entries.length === 0}
+                  >
+                    <Archive size={16} />
+                    {isUpdatingAllDrafts
+                      ? activeTab === 'active'
+                        ? 'Mengarkibkan...'
+                        : 'Memulihkan...'
+                      : activeTab === 'active'
+                        ? 'Arkib Semua'
+                        : 'Pulih Semua'}
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -431,7 +480,11 @@ export default function DataParcelPage() {
                   {entries.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                        {isLoadingDrafts ? 'Memuatkan draft data parcel...' : 'Belum ada data parcel dalam senarai.'}
+                        {isLoadingDrafts
+                          ? 'Memuatkan draft data parcel...'
+                          : activeTab === 'active'
+                            ? 'Belum ada data parcel semasa.'
+                            : 'Belum ada sejarah data parcel.'}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -446,11 +499,18 @@ export default function DataParcelPage() {
                           <Button
                             type="button"
                             variant="ghost"
-                            className="text-destructive"
-                            onClick={() => handleDeleteEntry(item.id)}
-                            disabled={isDeletingDraftId === item.id}
+                            onClick={() =>
+                              handleUpdateEntryStatus(item.id, activeTab === 'active' ? 'archive' : 'restore')
+                            }
+                            disabled={isUpdatingDraftId === item.id}
                           >
-                            <Trash2 size={16} />
+                            {isUpdatingDraftId === item.id
+                              ? activeTab === 'active'
+                                ? 'Arkib...'
+                                : 'Pulih...'
+                              : activeTab === 'active'
+                                ? 'Arkib'
+                                : 'Pulih'}
                           </Button>
                         </TableCell>
                       </TableRow>

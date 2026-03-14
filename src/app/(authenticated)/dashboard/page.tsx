@@ -3,7 +3,7 @@
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/components/auth-context';
-import { BookUser, FileText, Hash, Key, ListPlus, ReceiptText, ShieldCheck, Upload, UserPlus } from 'lucide-react';
+import { BarChart2, BookUser, FileText, Hash, Key, ListPlus, ReceiptText, ShieldCheck, Upload, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -22,14 +22,16 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [jumlahPelanggan, setJumlahPelanggan] = useState(0);
   const [jumlahDraftResit, setJumlahDraftResit] = useState(0);
+  const [jumlahPenerbitanAktif, setJumlahPenerbitanAktif] = useState(0);
   const [nextNoResit, setNextNoResit] = useState('-');
   const [nextNoSebutHarga, setNextNoSebutHarga] = useState('-');
 
   useEffect(() => {
     const loadDashboardData = async () => {
-      const [customerResponse, receiptResponse] = await Promise.all([
+      const [customerResponse, receiptResponse, rekodResponse] = await Promise.all([
         fetch('/api/customers', { cache: 'no-store' }),
         fetch('/api/receipts', { cache: 'no-store' }),
+        fetch('/api/rekod-jualan', { cache: 'no-store' }),
       ]);
 
       if (customerResponse.ok) {
@@ -42,6 +44,12 @@ export default function DashboardPage() {
         setJumlahDraftResit(receiptData.receipts?.length ?? 0);
         setNextNoResit(receiptData.nextNoResit ?? '-');
         setNextNoSebutHarga(receiptData.nextNoSeriSebatHarga ?? '-');
+      }
+
+      if (rekodResponse.ok) {
+        const rekodData = (await rekodResponse.json()) as { rekod?: Array<{ aktif: number }> };
+        const aktif = (rekodData.rekod ?? []).filter((r) => r.aktif === 1).length;
+        setJumlahPenerbitanAktif(aktif);
       }
     };
 
@@ -76,7 +84,14 @@ export default function DashboardPage() {
       icon: ReceiptText,
       description: 'Nombor seterusnya untuk sebut harga',
       color: "text-orange-600 bg-orange-100",
-    }
+    },
+    {
+      title: 'Penerbitan Aktif',
+      value: jumlahPenerbitanAktif.toString(),
+      icon: BarChart2,
+      description: 'Edisi modul yang sedang aktif dijual',
+      color: "text-teal-600 bg-teal-100",
+    },
   ];
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Archive } from 'lucide-react';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -94,6 +94,8 @@ const isSamePendingCustomer = (left: PendingCustomer, right: PendingCustomer) =>
 export default function AddressGeneratorPage() {
   const [form, setForm] = useState(emptyForm);
   const [entries, setEntries] = useState<AddressEntry[]>([]);
+  const [archivedEntries, setArchivedEntries] = useState<AddressEntry[]>([]);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [pendingCustomers, setPendingCustomers] = useState<PendingCustomer[]>([]);
   const [isSavingPendingCustomer, setIsSavingPendingCustomer] = useState(false);
   const { toast } = useToast();
@@ -105,9 +107,11 @@ export default function AddressGeneratorPage() {
     textAlign: 'center' as const,
   };
 
+  const visibleEntries = activeTab === 'active' ? entries : archivedEntries;
+
   const previewRows = useMemo<PreviewRow[]>(
     () =>
-      entries.flatMap((entry) =>
+      visibleEntries.flatMap((entry) =>
         Array.from({ length: entry.bilanganAlamat }, (_, copyIndex) => ({
           id: `${entry.id}-${copyIndex}`,
           bil: entry.bil,
@@ -115,7 +119,7 @@ export default function AddressGeneratorPage() {
           alamatLines: buildAlamatLines(entry),
         }))
       ),
-    [entries]
+    [visibleEntries]
   );
 
   const previewPages = useMemo(() => chunkRows(previewRows, 3), [previewRows]);
@@ -297,12 +301,37 @@ export default function AddressGeneratorPage() {
     }
 
     setEntries((current) => [...current, nextEntry]);
+    setActiveTab('active');
     setForm(emptyForm);
     void checkCustomerExists(nextEntry);
   };
 
-  const handleRemoveEntry = (entryId: string) => {
-    setEntries((current) => current.filter((entry) => entry.id !== entryId));
+  const handleMoveEntry = (entryId: string, action: 'archive' | 'restore') => {
+    if (action === 'archive') {
+      const target = entries.find((entry) => entry.id === entryId);
+      if (!target) return;
+      setEntries((current) => current.filter((entry) => entry.id !== entryId));
+      setArchivedEntries((current) => [...current, target]);
+      return;
+    }
+
+    const target = archivedEntries.find((entry) => entry.id === entryId);
+    if (!target) return;
+    setArchivedEntries((current) => current.filter((entry) => entry.id !== entryId));
+    setEntries((current) => [...current, target]);
+  };
+
+  const handleMoveAllEntries = (action: 'archive-all' | 'restore-all') => {
+    if (action === 'archive-all') {
+      if (entries.length === 0) return;
+      setArchivedEntries((current) => [...current, ...entries]);
+      setEntries([]);
+      return;
+    }
+
+    if (archivedEntries.length === 0) return;
+    setEntries((current) => [...current, ...archivedEntries]);
+    setArchivedEntries([]);
   };
 
   const handleExportPdfA6 = () => {
@@ -681,22 +710,56 @@ export default function AddressGeneratorPage() {
           <Card className="border-none shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg">Senarai Untuk Jana PDF</CardTitle>
-              <CardDescription>{entries.length} item dalam senarai semasa.</CardDescription>
+              <CardDescription>
+                {visibleEntries.length} item dalam {activeTab === 'active' ? 'Semasa' : 'Sejarah'}.
+              </CardDescription>
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant={activeTab === 'active' ? 'default' : 'outline'}
+                  onClick={() => setActiveTab('active')}
+                >
+                  Semasa
+                </Button>
+                <Button
+                  type="button"
+                  variant={activeTab === 'archived' ? 'default' : 'outline'}
+                  onClick={() => setActiveTab('archived')}
+                >
+                  Sejarah
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="ml-auto gap-2"
+                  onClick={() => handleMoveAllEntries(activeTab === 'active' ? 'archive-all' : 'restore-all')}
+                  disabled={visibleEntries.length === 0}
+                >
+                  <Archive size={16} />
+                  {activeTab === 'active' ? 'Arkib Semua' : 'Pulih Semua'}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              {entries.length === 0 ? (
+              {visibleEntries.length === 0 ? (
                 <div className="rounded-md border border-dashed px-4 py-8 text-sm text-muted-foreground">
-                  Belum ada data. Isi form di sebelah kiri dan tekan `Tambah Ke Senarai`.
+                  {activeTab === 'active'
+                    ? 'Belum ada data semasa. Isi form di sebelah kiri dan tekan `Tambah Ke Senarai`.'
+                    : 'Belum ada data sejarah alamat.'}
                 </div>
               ) : (
-                entries.map((entry, index) => (
+                visibleEntries.map((entry, index) => (
                   <div key={entry.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
                     <div className="min-w-0">
                       <div className="font-semibold">{index + 1}. {entry.nama}</div>
                       <div className="text-sm text-muted-foreground">Bil: {entry.bil} | KV: {entry.kv || '-'} | Poskod: {entry.poskod} | Phone: {entry.noPhone} | Bilangan Alamat: {entry.bilanganAlamat}</div>
                     </div>
-                    <Button type="button" variant="ghost" className="text-destructive" onClick={() => handleRemoveEntry(entry.id)}>
-                      <Trash2 size={16} />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handleMoveEntry(entry.id, activeTab === 'active' ? 'archive' : 'restore')}
+                    >
+                      {activeTab === 'active' ? 'Arkib' : 'Pulih'}
                     </Button>
                   </div>
                 ))
@@ -705,10 +768,10 @@ export default function AddressGeneratorPage() {
           </Card>
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={handleExportPdfA6} disabled={entries.length === 0}>
+            <Button type="button" variant="outline" onClick={handleExportPdfA6} disabled={visibleEntries.length === 0}>
               Eksport PDF (A6)
             </Button>
-            <Button type="button" variant="outline" onClick={handleExportPdfA6Direct} disabled={entries.length === 0}>
+            <Button type="button" variant="outline" onClick={handleExportPdfA6Direct} disabled={visibleEntries.length === 0}>
               Eksport PDF A6 (Terus)
             </Button>
           </div>

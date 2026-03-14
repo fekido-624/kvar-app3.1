@@ -11,7 +11,7 @@ const PatchDraftSchema = z.object({
   action: z.enum(['archive', 'restore']),
 });
 
-const ensureDataParcelDraftTable = async () => {
+const ensureSupportTables = async () => {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "DataParcelDraft" (
       "id" TEXT NOT NULL PRIMARY KEY,
@@ -27,16 +27,30 @@ const ensureDataParcelDraftTable = async () => {
     )
   `);
 
-  const columns = (await prisma.$queryRawUnsafe(`PRAGMA table_info("DataParcelDraft")`)) as Array<{ name: string }>;
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "TempahanDraft" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "receiptDraftId" TEXT NOT NULL,
+      "dataParcelDraftId" TEXT NOT NULL,
+      "bilanganAlamat" INTEGER NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'active',
+      "archivedAt" DATETIME,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE("receiptDraftId")
+    )
+  `);
+
+  const columns = (await prisma.$queryRawUnsafe(`PRAGMA table_info("TempahanDraft")`)) as Array<{ name: string }>;
   const hasStatus = columns.some((column) => column.name === 'status');
   const hasArchivedAt = columns.some((column) => column.name === 'archivedAt');
 
   if (!hasStatus) {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "DataParcelDraft" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'active'`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "TempahanDraft" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'active'`);
   }
 
   if (!hasArchivedAt) {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "DataParcelDraft" ADD COLUMN "archivedAt" DATETIME`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "TempahanDraft" ADD COLUMN "archivedAt" DATETIME`);
   }
 };
 
@@ -46,7 +60,7 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  await ensureDataParcelDraftTable();
+  await ensureSupportTables();
   const { id } = await params;
 
   const json = await request.json().catch(() => null);
@@ -58,30 +72,32 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
+  const { action } = parsed.data;
+
   try {
-    if (parsed.data.action === 'archive') {
+    if (action === 'archive') {
       await prisma.$executeRawUnsafe(
         `
-        UPDATE "DataParcelDraft"
+        UPDATE "TempahanDraft"
         SET "status" = 'archived', "archivedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
         WHERE "id" = ?
         `,
         id
       );
-      return NextResponse.json({ success: true, action: 'archive' });
+      return NextResponse.json({ success: true, action });
     }
 
     await prisma.$executeRawUnsafe(
       `
-      UPDATE "DataParcelDraft"
+      UPDATE "TempahanDraft"
       SET "status" = 'active', "archivedAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
       WHERE "id" = ?
       `,
       id
     );
-    return NextResponse.json({ success: true, action: 'restore' });
+    return NextResponse.json({ success: true, action });
   } catch {
-    return NextResponse.json({ error: 'Failed to update data parcel draft status' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update tempahan draft status.' }, { status: 500 });
   }
 }
 
@@ -91,21 +107,31 @@ export async function DELETE(_: Request, { params }: Params) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (currentUser.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  await ensureDataParcelDraftTable();
-
+  await ensureSupportTables();
   const { id } = await params;
 
+  const rows = (await prisma.$queryRawUnsafe(
+    `
+    SELECT "receiptDraftId", "dataParcelDraftId"
+    FROM "TempahanDraft"
+    WHERE "id" = ?
+    LIMIT 1
+    `,
+    id
+  )) as Array<{ receiptDraftId: string; dataParcelDraftId: string }>;
+
+  if (rows.length === 0) {
+    return NextResponse.json({ error: 'Draft not found.' }, { status: 404 });
+  }
+
+  const link = rows[0];
+
   try {
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM "DataParcelDraft" WHERE "id" = ?`,
-      id
-    );
+    await prisma.$executeRawUnsafe(`DELETE FROM "TempahanDraft" WHERE "id" = ?`, id);
+    await prisma.receiptDraft.deleteMany({ where: { id: link.receiptDraftId } });
+    await prisma.$executeRawUnsafe(`DELETE FROM "DataParcelDraft" WHERE "id" = ?`, link.dataParcelDraftId);
     return NextResponse.json({ success: true });
   } catch {
-    return NextResponse.json({ error: 'Failed to delete data parcel draft' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to delete tempahan draft.' }, { status: 500 });
   }
 }

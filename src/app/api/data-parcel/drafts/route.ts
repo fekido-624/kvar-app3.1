@@ -14,6 +14,12 @@ const DataParcelDraftSchema = z.object({
   bilanganParcel: z.number().int().min(1),
 });
 
+const StatusQuerySchema = z.enum(['active', 'archived']);
+
+const BulkStatusSchema = z.object({
+  action: z.enum(['archive_all', 'restore_all']),
+});
+
 const ensureDataParcelDraftTable = async () => {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "DataParcelDraft" (
@@ -29,15 +35,31 @@ const ensureDataParcelDraftTable = async () => {
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  const columns = (await prisma.$queryRawUnsafe(`PRAGMA table_info("DataParcelDraft")`)) as Array<{ name: string }>;
+  const hasStatus = columns.some((column) => column.name === 'status');
+  const hasArchivedAt = columns.some((column) => column.name === 'archivedAt');
+
+  if (!hasStatus) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "DataParcelDraft" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'active'`);
+  }
+
+  if (!hasArchivedAt) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "DataParcelDraft" ADD COLUMN "archivedAt" DATETIME`);
+  }
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   const currentUser = await requireCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   await ensureDataParcelDraftTable();
+
+  const { searchParams } = new URL(request.url);
+  const parsedStatus = StatusQuerySchema.safeParse(searchParams.get('status') ?? 'active');
+  const status = parsedStatus.success ? parsedStatus.data : 'active';
 
   const drafts = (await prisma.$queryRawUnsafe(`
     SELECT
@@ -49,11 +71,14 @@ export async function GET() {
       "noPhone",
       "noOrder",
       "bilanganParcel",
+      "status",
+      "archivedAt",
       "createdAt",
       "updatedAt"
     FROM "DataParcelDraft"
+    WHERE "status" = ?
     ORDER BY "createdAt" DESC
-  `)) as Array<{
+  `, status)) as Array<{
     id: string;
     namaCustomer: string;
     alamat: string;
@@ -104,9 +129,11 @@ export async function POST(request: Request) {
         "noPhone",
         "noOrder",
         "bilanganParcel",
+        "status",
+        "archivedAt",
         "createdAt",
         "updatedAt"
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, ?, ?)
       `,
       id,
       data.namaCustomer,
@@ -129,6 +156,8 @@ export async function POST(request: Request) {
       noPhone: data.noPhone,
       noOrder: data.noOrder,
       bilanganParcel: data.bilanganParcel,
+      status: 'active',
+      archivedAt: null,
       createdAt: nowIso,
       updatedAt: nowIso,
     };
@@ -145,10 +174,53 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  const currentUser = await requireCurrentUser();
+  if (!currentUser) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  await ensureDataParcelDraftTable();
+
+  const json = await request.json().catch(() => null);
+  const parsed = BulkStatusSchema.safeParse(json);
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid data', details: parsed.error.errors },
+      { status: 400 }
+    );
+  }
+
+  try {
+    if (parsed.data.action === 'archive_all') {
+      await prisma.$executeRawUnsafe(`
+        UPDATE "DataParcelDraft"
+        SET "status" = 'archived', "archivedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "status" = 'active'
+      `);
+      return NextResponse.json({ success: true, action: 'archive_all' });
+    }
+
+    await prisma.$executeRawUnsafe(`
+      UPDATE "DataParcelDraft"
+      SET "status" = 'active', "archivedAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "status" = 'archived'
+    `);
+    return NextResponse.json({ success: true, action: 'restore_all' });
+  } catch {
+    return NextResponse.json({ error: 'Unable to update data parcel draft status.' }, { status: 500 });
+  }
+}
+
 export async function DELETE() {
   const currentUser = await requireCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (currentUser.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   await ensureDataParcelDraftTable();

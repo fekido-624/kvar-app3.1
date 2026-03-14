@@ -13,7 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, UserPlus, UserCircle, LogOut, ShieldCheck, BookUser, ReceiptText, MapPinned, Package } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, UserCircle, LogOut, ShieldCheck, BookUser, ReceiptText, MapPinned, Package, ShoppingCart, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -70,6 +70,15 @@ export function AppSidebar() {
               </SidebarMenuItem>
 
               <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/tempahan'} tooltip="Tempahan">
+                  <Link href="/tempahan">
+                    <ShoppingCart />
+                    <span>Tempahan</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={pathname === '/address-generator'} tooltip="Penjana Alamat">
                   <Link href="/address-generator">
                     <MapPinned />
@@ -83,6 +92,15 @@ export function AppSidebar() {
                   <Link href="/data-parcel">
                     <Package />
                     <span>Data Parcel</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/rekod-jualan'} tooltip="Rekod Jualan">
+                  <Link href="/rekod-jualan">
+                    <BookOpen />
+                    <span>Rekod Jualan</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

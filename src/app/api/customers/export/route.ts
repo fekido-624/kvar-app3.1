@@ -13,25 +13,21 @@ export async function GET() {
     orderBy: { createdAt: 'desc' },
   });
 
-  const rows = customers.map((customer, index) => ({
-    No: index + 1,
+  const rows = customers.map((customer) => ({
     Name: customer.name,
     Address: customer.address,
     Postcode: customer.postcode,
     Phone: customer.phone,
     'Kod KV': customer.kodKV,
-    CreatedAt: customer.createdAt.toISOString(),
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(rows);
   worksheet['!cols'] = [
-    { wch: 6 },
     { wch: 28 },
     { wch: 45 },
     { wch: 12 },
     { wch: 18 },
     { wch: 14 },
-    { wch: 24 },
   ];
 
   const workbook = XLSX.utils.book_new();

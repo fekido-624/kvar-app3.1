@@ -40,6 +40,9 @@ export async function GET(request: Request) {
         id: true,
         name: true,
         kodKV: true,
+        address: true,
+        postcode: true,
+        phone: true,
       },
       orderBy: { name: 'asc' },
     });

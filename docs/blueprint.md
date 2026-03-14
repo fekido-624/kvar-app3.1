@@ -25,6 +25,45 @@
 	- Reusable component: `src/components/ui/password-input.tsx`
 	- Applied to: login, create user, edit user, profile pages
 
+### Latest Product Updates (2026-03-14)
+
+- New Rekod Jualan module delivered:
+	- Page: `src/app/(authenticated)/rekod-jualan/page.tsx`
+	- API: `src/app/api/rekod-jualan/route.ts`
+	- Sidebar menu added: `Rekod Jualan`
+	- Dashboard stat added: `Penerbitan Aktif`
+- New Penerbitan API delivered:
+	- List/create: `src/app/api/penerbitan/route.ts`
+	- Update/delete: `src/app/api/penerbitan/[id]/route.ts`
+- Module naming is now standardized and auto-generated:
+	- Format: `MODUL ... SEMESTER X (KOHORT TAHUN) KOLEJ VOKASIONAL`
+	- Sebut harga title auto format: `SEBUTHARGA BAGI MEMBEKALKAN [MODULE NAME]`
+	- Shared util: `src/lib/module-text.ts`
+- Tempahan flow updated to use Penerbitan as source of truth:
+	- User must pick module from Rekod Jualan (`penerbitanId` stored in draft)
+	- Perkara, Tajuk, Semester, Harga Seunit auto-filled from selected module
+	- Penerbitan dropdown refreshes on open and normalizes `aktif` values from SQLite
+- Receipts flow updated to reduce manual input:
+	- Perkara options merged with active Penerbitan list (`/api/receipt-perkara`)
+	- Tajuk + Semester auto-generated from selected perkara
+- Rekod Jualan UI refinements:
+	- Hide sebut harga field in admin form
+	- Remove `Edisi` input in form (fixed internally to `1`)
+	- Rename `Tahun` label to `Kohort`
+	- Long module names now wrap up to 3 lines in table
+	- Empty-state messages are role-aware (admin vs non-admin)
+- Draft Tempahan actions updated:
+	- Per-row delete button added in Draft Tempahan list (calls `/api/tempahan/drafts/[id]` DELETE)
+	- Delete removes linked `TempahanDraft` + `ReceiptDraft` + `DataParcelDraft`
+	- Archive UX changed: active list now uses checkbox selection + `Arkibkan Dipilih`, per-row archive button removed
+	- Archived list still supports restore (single + selected)
+- Invoice export bugfixes delivered:
+	- `/api/receipts/export-pdf` now supports status filter (`active|archived`)
+	- Tempahan export path supports `source=tempahan` to follow TempahanDraft status
+	- Added runtime column guard for status migration
+- BigInt serialization hardening:
+	- Raw SQL responses that may include BigInt are safely normalized before JSON response in rekod/penerbitan routes
+
 ### Resume Prompt (Copy/Paste)
 
 Use this in a new chat to continue safely:
@@ -33,7 +72,12 @@ Use this in a new chat to continue safely:
 Sambung project KVar.
 Latest commit: 3f63196.
 Rujuk docs/blueprint.md (Project Handoff).
-Fokus task: <isi task semasa>.
+Rujuk section: Latest Product Updates (2026-03-14).
+Flow semasa yang dah stabil:
+- Rekod Jualan/Penerbitan sebagai source of truth modul
+- Tempahan guna penerbitanId + auto-fill perkara/tajuk/semester/harga
+- Draft Tempahan: checkbox arkib dipilih + delete per-row
+Fokus task: <isi task semasa, contoh: refine UI Tempahan atau reporting Rekod Jualan>.
 Jangan ubah flow sedia ada tanpa confirmation.
 ```
 
@@ -95,3 +139,11 @@ Jika Data Parcel export gagal, verify fail data-parcel-template.xlsx pada host d
 - Utilize a consistent set of simple, line-based icons for common actions like login, add user, edit, delete, and profile, to ensure clarity and a modern aesthetic.
 - Employ a clear, intuitive layout with a responsive design, prioritizing functional simplicity. A main navigation on the side for admins, and central content areas for forms and tables.
 - Incorporate subtle, quick animations for form submissions, data loading indicators, and route transitions to provide a smooth and responsive user experience without being distracting.
+
+### Summary Task Hari Ini
+
+- Receipts page: Tambah field Harga Seunit (Custom) yang boleh diedit, tidak dihantar ke excel dan tidak refer harga modul.
+- Fix bug input Harga Seunit, Kuantiti, Harga Postage supaya sentiasa boleh diedit (remove disabled/readOnly).
+- Debug servis Next.js/Node.js: tambah panduan kill proses dan restart server.
+- UI: Letak field Harga Seunit (Custom) di bawah sekali untuk kegunaan dalaman.
+- Troubleshoot: Pastikan perubahan code beri kesan selepas restart laptop jika proses masih hidup.

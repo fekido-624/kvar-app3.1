@@ -22,10 +22,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { ReceiptDraft, ReceiptPerkaraOption, ReceiptTajukOption } from '@/lib/types';
-import { Printer, RotateCcw, Save, Trash2 } from 'lucide-react';
+import { ReceiptDraft, ReceiptTajukOption } from '@/lib/types';
+import { Archive, Printer, RotateCcw, Save } from 'lucide-react';
 import { CustomerAutocomplete } from '@/components/customer-autocomplete';
 import { KVAutocomplete } from '@/components/kv-autocomplete';
+import { buildSebutHargaTitle, extractSemesterLabelFromPerkara } from '@/lib/module-text';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +38,14 @@ import {
 
 const toCurrency = (value: number) => `RM ${value.toFixed(2)}`;
 
+type ActivePerkaraOption = {
+  id: string;
+  label: string;
+};
+
 export default function ResitTestPage() {
+    // Harga seunit custom, tidak dihantar ke excel dan tidak refer modul
+    const [hargaSeunitCustom, setHargaSeunitCustom] = useState('');
   const [noResit, setNoResit] = useState('');
   const [noSeriSebatHarga, setNoSeriSebatHarga] = useState('');
   const [namaPenerima, setNamaPenerima] = useState('');
@@ -45,12 +53,13 @@ export default function ResitTestPage() {
   const [tajuk, setTajuk] = useState('');
   const [perkara, setPerkara] = useState('');
   const [kuantiti, setKuantiti] = useState('1');
-  const [hargaSeunit, setHargaSeunit] = useState('0');
+  const [hargaSeunit, setHargaSeunit] = useState('');
   const [hargaPostage, setHargaPostage] = useState('0');
   const [tarikh, setTarikh] = useState(new Date().toISOString().slice(0, 10));
   const [semester, setSemester] = useState('');
 
-  const [perkaraOptions, setPerkaraOptions] = useState<ReceiptPerkaraOption[]>([]);
+  const [perkaraOptions, setPerkaraOptions] = useState<ActivePerkaraOption[]>([]);
+  const [penerbitanRows, setPenerbitanRows] = useState<Array<Record<string, unknown>>>([]);
   const [newPerkaraOption, setNewPerkaraOption] = useState('');
   const [selectedPerkaraOptionId, setSelectedPerkaraOptionId] = useState('');
 
@@ -63,7 +72,9 @@ export default function ResitTestPage() {
   const [isSavingPerkaraOption, setIsSavingPerkaraOption] = useState(false);
   const [isSavingTajukOption, setIsSavingTajukOption] = useState(false);
   const [isExportingPdfZip, setIsExportingPdfZip] = useState(false);
-  const [isClearingDrafts, setIsClearingDrafts] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [isUpdatingDraftId, setIsUpdatingDraftId] = useState<string | null>(null);
+  const [isUpdatingAllDrafts, setIsUpdatingAllDrafts] = useState(false);
   const [isResettingNoResit, setIsResettingNoResit] = useState(false);
   const [isResettingSebatHarga, setIsResettingSebatHarga] = useState(false);
   const [resetStartNo, setResetStartNo] = useState('1');
@@ -78,8 +89,13 @@ export default function ResitTestPage() {
     return qty * unit + postage;
   }, [kuantiti, hargaSeunit, hargaPostage]);
 
+  const filteredReceiptDrafts = useMemo(
+    () => receiptDrafts,
+    [receiptDrafts]
+  );
+
   const loadDrafts = async () => {
-    const response = await fetch('/api/receipts', { cache: 'no-store' });
+    const response = await fetch(`/api/receipts?status=${activeTab}`, { cache: 'no-store' });
     if (!response.ok) return;
     const data = await response.json();
     const receipts = data.receipts ?? [];
@@ -89,10 +105,27 @@ export default function ResitTestPage() {
   };
 
   const loadPerkaraOptions = async () => {
-    const response = await fetch('/api/receipt-perkara', { cache: 'no-store' });
+    const response = await fetch('/api/penerbitan', { cache: 'no-store' });
     if (!response.ok) return;
     const data = await response.json();
-    setPerkaraOptions(data.options ?? []);
+    const rows = Array.isArray(data.penerbitan) ? data.penerbitan : [];
+
+    setPenerbitanRows(rows);
+
+    const byLabel = new Map<string, ActivePerkaraOption>();
+    for (const row of rows as Array<Record<string, unknown>>) {
+      if (Number(row.aktif ?? 0) !== 1) continue;
+      const label = String(row.perkara ?? '').trim();
+      if (!label) continue;
+      if (!byLabel.has(label)) {
+        byLabel.set(label, {
+          id: String(row.id ?? label),
+          label,
+        });
+      }
+    }
+
+    setPerkaraOptions(Array.from(byLabel.values()).sort((a, b) => a.label.localeCompare(b.label)));
   };
 
   const loadTajukOptions = async () => {
@@ -104,15 +137,28 @@ export default function ResitTestPage() {
 
   useEffect(() => {
     loadDrafts();
+  }, [activeTab]);
+
+  useEffect(() => {
     loadPerkaraOptions();
     loadTajukOptions();
   }, []);
+
+  useEffect(() => {
+    if (!perkara.trim()) {
+      setTajuk('');
+      setSemester('');
+      return;
+    }
+    setTajuk(buildSebutHargaTitle(perkara));
+    setSemester(extractSemesterLabelFromPerkara(perkara));
+  }, [perkara]);
 
   const resetForm = () => {
     setNamaPenerima('');
     setNamaKolejVokasional('');
     setKuantiti('1');
-    setHargaSeunit('0');
+    // setHargaSeunit(''); // Jangan reset harga seunit, biar kekal
     setHargaPostage('0');
     setTarikh(new Date().toISOString().slice(0, 10));
     setSemester('');
@@ -294,13 +340,19 @@ export default function ResitTestPage() {
     e.preventDefault();
 
     setIsSavingDraft(true);
+
+    let hargaSeunitValue = hargaSeunit !== '' ? Number(hargaSeunit) : 0;
+    if (!perkara) {
+      hargaSeunitValue = 0;
+    }
+
     const payload = {
       namaPenerima,
       namaKolejVokasional,
       tajuk,
       perkara,
       kuantiti: Number(kuantiti),
-      hargaSeunit: Number(hargaSeunit),
+      hargaSeunit: hargaSeunitValue,
       hargaPostage: Number(hargaPostage),
       tarikh,
       semester,
@@ -332,37 +384,19 @@ export default function ResitTestPage() {
     });
   };
 
-  const handleDeleteDraft = async (receiptId: string) => {
-    const response = await fetch(`/api/receipts/${receiptId}`, { method: 'DELETE' });
-    if (!response.ok) {
-      toast({
-        title: 'Padam Gagal',
-        description: 'Tidak dapat buang draf resit.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    await loadDrafts();
-    toast({
-      title: 'Resit Dipadam',
-      description: 'Draf resit berjaya dipadam dari senarai.',
-    });
-  };
-
-  const handleClearAllDrafts = async () => {
-    if (receiptDrafts.length === 0 || isClearingDrafts) return;
-
-    const confirmed = window.confirm('Kosongkan semua draft resit dalam senarai ini?');
-    if (!confirmed) return;
-
-    setIsClearingDrafts(true);
+  const handleUpdateDraftStatus = async (receiptId: string, action: 'archive' | 'restore') => {
+    setIsUpdatingDraftId(receiptId);
     try {
-      const response = await fetch('/api/receipts', { method: 'DELETE' });
+      const response = await fetch(`/api/receipts/${receiptId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+
       if (!response.ok) {
         toast({
-          title: 'Kosongkan Gagal',
-          description: 'Tidak dapat kosongkan semua draft resit.',
+          title: action === 'archive' ? 'Arkib Gagal' : 'Pulih Gagal',
+          description: action === 'archive' ? 'Tidak dapat arkibkan draf resit.' : 'Tidak dapat pulihkan draf resit.',
           variant: 'destructive',
         });
         return;
@@ -370,21 +404,80 @@ export default function ResitTestPage() {
 
       await loadDrafts();
       toast({
-        title: 'Senarai Dikosongkan',
-        description: 'Semua draft resit telah dipadam.',
+        title: action === 'archive' ? 'Resit Diarkibkan' : 'Resit Dipulihkan',
+        description:
+          action === 'archive'
+            ? 'Draf resit dipindahkan ke Sejarah.'
+            : 'Draf resit dipindahkan ke Semasa.',
       });
     } catch {
       toast({
-        title: 'Kosongkan Gagal',
-        description: 'Ralat network/server semasa kosongkan draft.',
+        title: action === 'archive' ? 'Arkib Gagal' : 'Pulih Gagal',
+        description: 'Ralat network/server semasa kemas kini status draf.',
         variant: 'destructive',
       });
     } finally {
-      setIsClearingDrafts(false);
+      setIsUpdatingDraftId(null);
     }
   };
 
-  const handleSelectCustomer = (customer: { id: string; name: string; kodKV: string }) => {
+  const handleUpdateAllDraftsStatus = async (action: 'archive_all' | 'restore_all') => {
+    if (filteredReceiptDrafts.length === 0 || isUpdatingAllDrafts) return;
+
+    const confirmed = window.confirm(
+      action === 'archive_all'
+        ? 'Pindahkan semua draf semasa ke Sejarah?'
+        : 'Pulihkan semua draf sejarah ke Semasa?'
+    );
+    if (!confirmed) return;
+
+    setIsUpdatingAllDrafts(true);
+    try {
+      const response = await fetch('/api/receipts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+
+      if (!response.ok) {
+        toast({
+          title: action === 'archive_all' ? 'Arkib Gagal' : 'Pulih Gagal',
+          description:
+            action === 'archive_all'
+              ? 'Tidak dapat arkibkan semua draf resit.'
+              : 'Tidak dapat pulihkan semua draf resit.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      await loadDrafts();
+      toast({
+        title: action === 'archive_all' ? 'Semua Draf Diarkibkan' : 'Semua Draf Dipulihkan',
+        description:
+          action === 'archive_all'
+            ? 'Semua draf semasa dipindahkan ke Sejarah.'
+            : 'Semua draf sejarah dipulihkan ke Semasa.',
+      });
+    } catch {
+      toast({
+        title: action === 'archive_all' ? 'Arkib Gagal' : 'Pulih Gagal',
+        description: 'Ralat network/server semasa kemas kini semua draf.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUpdatingAllDrafts(false);
+    }
+  };
+
+  const handleSelectCustomer = (customer: {
+    id: string;
+    name: string;
+    kodKV: string;
+    address?: string;
+    postcode?: string;
+    phone?: string;
+  }) => {
     setNamaPenerima(customer.name);
     handleFillNamaKV(customer.kodKV);
   };
@@ -511,7 +604,7 @@ export default function ResitTestPage() {
   const handleExportDraftPdfZip = async () => {
     setIsExportingPdfZip(true);
     try {
-      const response = await fetch('/api/receipts/export-pdf', { method: 'GET' });
+      const response = await fetch(`/api/receipts/export-pdf?status=${activeTab}`, { method: 'GET' });
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -690,61 +783,30 @@ export default function ResitTestPage() {
 
             <div className="space-y-2">
               <Label>Tajuk (Untuk Sebut Harga)</Label>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto_auto]">
-                <Select
-                  value={tajuk}
-                  onValueChange={(value) => {
-                    setTajuk(value);
-                    const selected = tajukOptions.find((opt) => opt.label === value);
-                    setSelectedTajukOptionId(selected?.id ?? '');
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih tajuk dari menu" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tajukOptions.map((option) => (
-                      <SelectItem key={option.id} value={option.label}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  placeholder="Atau taip tajuk baru"
-                  value={newTajukOption}
-                  onChange={(e) => setNewTajukOption(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSaveTajukOption();
-                    }
-                  }}
-                />
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={handleSaveTajukOption} disabled={isSavingTajukOption || !newTajukOption.trim()}>
-                    Simpan Menu
-                  </Button>
-                  <Button type="button" variant="destructive" onClick={handleDeleteTajukOption} disabled={!selectedTajukOptionId}>
-                    Padam Menu
-                  </Button>
-                </div>
-              </div>
+              <Input value={tajuk} readOnly placeholder="Auto generate dari modul (Perkara)" />
             </div>
 
             <div className="space-y-2">
               <Label>Perkara</Label>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto_auto]">
+              <div className="grid grid-cols-1 gap-2">
                 <Select
                   value={perkara}
                   onValueChange={(value) => {
                     setPerkara(value);
                     const selected = perkaraOptions.find((opt) => opt.label === value);
                     setSelectedPerkaraOptionId(selected?.id ?? '');
+
+                    // Cari hargaSeunit dari penerbitanRows
+                    const penerbitan = penerbitanRows.find((row) => String(row.perkara ?? '').trim() === value);
+                    if (penerbitan && typeof penerbitan.hargaSeunit === 'number') {
+                      setHargaSeunit(String(penerbitan.hargaSeunit));
+                    } else {
+                      setHargaSeunit('');
+                    }
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Pilih perkara dari menu" />
+                    <SelectValue placeholder="Pilih modul dari Rekod Jualan" />
                   </SelectTrigger>
                   <SelectContent>
                     {perkaraOptions.map((option) => (
@@ -754,25 +816,7 @@ export default function ResitTestPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Input
-                  placeholder="Atau taip perkara baru"
-                  value={newPerkaraOption}
-                  onChange={(e) => setNewPerkaraOption(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSavePerkaraOption();
-                    }
-                  }}
-                />
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={handleSavePerkaraOption} disabled={isSavingPerkaraOption || !newPerkaraOption.trim()}>
-                    Simpan Menu
-                  </Button>
-                  <Button type="button" variant="destructive" onClick={handleDeletePerkaraOption} disabled={!selectedPerkaraOptionId}>
-                    Padam Menu
-                  </Button>
-                </div>
+                <p className="text-xs text-muted-foreground">Perkara diambil daripada modul yang telah dicipta di Rekod Jualan.</p>
               </div>
             </div>
 
@@ -783,7 +827,11 @@ export default function ResitTestPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="hargaSeunit">Harga Seunit</Label>
-                <Input id="hargaSeunit" type="number" min="0" step="0.01" value={hargaSeunit} onChange={(e) => setHargaSeunit(e.target.value)} required />
+                <Input id="hargaSeunit" type="number" min="0" step="0.01" value={hargaSeunit} onChange={(e) => setHargaSeunit(e.target.value)} required/>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="hargaSeunitCustom">Harga Seunit (Custom)</Label>
+                <Input id="hargaSeunitCustom" type="number" min="0" step="0.01" value={hargaSeunitCustom} onChange={(e) => setHargaSeunitCustom(e.target.value)} placeholder="Boleh edit, tidak dihantar ke excel" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="hargaPostage">Harga Postage</Label>
@@ -795,16 +843,10 @@ export default function ResitTestPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="semester">Semester</Label>
-                <Input id="semester" value={semester} onChange={(e) => setSemester(e.target.value)} placeholder="Contoh: Semester 1" required />
-              </div>
-              <div className="space-y-2">
-                <Label>Jumlah</Label>
-                <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-semibold">
-                  {toCurrency(jumlah)}
-                </div>
+            <div className="space-y-2">
+              <Label>Jumlah</Label>
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-semibold">
+                {toCurrency(jumlah)}
               </div>
             </div>
 
@@ -821,27 +863,55 @@ export default function ResitTestPage() {
       <Card className="mt-6 border-none shadow-sm print:hidden">
         <CardHeader>
           <CardTitle>Senarai Draft Resit</CardTitle>
-          <CardDescription>Resit yang telah disimpan untuk ujian mapping PDF seterusnya.</CardDescription>
-          <div className="flex flex-wrap gap-2 pt-2">
+          <CardDescription>
+            {activeTab === 'active'
+              ? 'Resit semasa yang sedia untuk eksport atau diarkib.'
+              : 'Sejarah resit yang telah diarkibkan.'}
+          </CardDescription>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
             <Button
               type="button"
-              className="gap-2"
-              onClick={handleExportDraftPdfZip}
-              disabled={isExportingPdfZip || receiptDrafts.length === 0}
+              variant={activeTab === 'active' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('active')}
             >
-              <Printer size={16} />
-              {isExportingPdfZip ? 'Menjana PDF ZIP...' : `Eksport PDF ZIP (${receiptDrafts.length})`}
+              Semasa
             </Button>
             <Button
               type="button"
-              variant="destructive"
-              className="gap-2"
-              onClick={handleClearAllDrafts}
-              disabled={isClearingDrafts || receiptDrafts.length === 0}
+              variant={activeTab === 'archived' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('archived')}
             >
-              <Trash2 size={16} />
-              {isClearingDrafts ? 'Mengosongkan...' : 'Kosongkan Draft'}
+              Sejarah
             </Button>
+            <div className="ml-auto flex flex-wrap gap-2">
+              <Button
+                type="button"
+                className="gap-2"
+                onClick={handleExportDraftPdfZip}
+                disabled={isExportingPdfZip || filteredReceiptDrafts.length === 0}
+              >
+                <Printer size={16} />
+                {isExportingPdfZip ? 'Menjana PDF ZIP...' : `Eksport PDF ZIP (${filteredReceiptDrafts.length})`}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                onClick={() =>
+                  handleUpdateAllDraftsStatus(activeTab === 'active' ? 'archive_all' : 'restore_all')
+                }
+                disabled={isUpdatingAllDrafts || filteredReceiptDrafts.length === 0}
+              >
+                <Archive size={16} />
+                {isUpdatingAllDrafts
+                  ? activeTab === 'active'
+                    ? 'Mengarkibkan...'
+                    : 'Memulihkan...'
+                  : activeTab === 'active'
+                    ? 'Arkib Semua'
+                    : 'Pulih Semua'}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -859,14 +929,14 @@ export default function ResitTestPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {receiptDrafts.length === 0 ? (
+                {filteredReceiptDrafts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                      Belum ada draft resit.
+                      {activeTab === 'active' ? 'Belum ada draft resit semasa.' : 'Belum ada sejarah resit.'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  receiptDrafts.map((item) => {
+                  filteredReceiptDrafts.map((item) => {
                     const total = item.kuantiti * item.hargaSeunit + item.hargaPostage;
                     return (
                       <TableRow key={item.id}>
@@ -877,8 +947,20 @@ export default function ResitTestPage() {
                         <TableCell>{item.semester}</TableCell>
                         <TableCell className="text-right">{toCurrency(total)}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" className="text-destructive" onClick={() => handleDeleteDraft(item.id)}>
-                            <Trash2 size={16} />
+                          <Button
+                            variant="ghost"
+                            onClick={() =>
+                              handleUpdateDraftStatus(item.id, activeTab === 'active' ? 'archive' : 'restore')
+                            }
+                            disabled={isUpdatingDraftId === item.id}
+                          >
+                            {isUpdatingDraftId === item.id
+                              ? activeTab === 'active'
+                                ? 'Arkib...'
+                                : 'Pulih...'
+                              : activeTab === 'active'
+                                ? 'Arkib'
+                                : 'Pulih'}
                           </Button>
                         </TableCell>
                       </TableRow>

@@ -12,6 +12,8 @@ type ReceiptTemplatePreviewProps = {
   jumlah: number;
 };
 
+import { getReceiptPerkaraLines } from '@/lib/receipt-text';
+
 const formatCurrency = (value: number) => value.toFixed(2);
 
 const formatDate = (value: string) => {
@@ -53,7 +55,7 @@ function ReceiptSectionPreview({
   hargaPostage,
   jumlah,
 }: ReceiptSectionPreviewProps) {
-  const itemLabel = uppercaseOrPlaceholder(perkara, 'PERKARA RESIT');
+  const itemLines = getReceiptPerkaraLines(perkara, 'PERKARA RESIT');
   const recipient = uppercaseOrPlaceholder(namaPenerima, 'NAMA PENERIMA');
   const college = uppercaseOrPlaceholder(namaKolejVokasional, 'KOLEJ VOKASIONAL');
   const sectionHeading = uppercaseOrPlaceholder(heading, 'TAJUK DOKUMEN AKAN MUNCUL DI SINI');
@@ -104,7 +106,11 @@ function ReceiptSectionPreview({
           </thead>
           <tbody>
             <tr>
-              <td className="h-[82px] border border-black px-1 align-top uppercase">{itemLabel}</td>
+              <td className="h-[82px] border border-black px-1 align-top uppercase">
+                {itemLines.map((line) => (
+                  <div key={line}>{line}</div>
+                ))}
+              </td>
               <td className="border border-black px-1 pt-5 text-center align-top">{kuantiti || 0}</td>
               <td className="border border-black px-1 pt-5 text-center align-top">{formatCurrency(hargaSeunit)}</td>
               <td className="border border-black px-1 pt-5 text-right align-top">{formatCurrency(subtotal)}</td>

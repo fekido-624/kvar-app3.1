@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireCurrentUser } from '@/lib/auth';
+import { buildSebutHargaTitle, extractSemesterLabelFromPerkara } from '@/lib/module-text';
 
 const RECEIPT_COUNTER_KEY = 'receipt_no_resit';
 const SEBAT_HARGA_COUNTER_KEY = 'sebat_harga_no_seri';
@@ -9,19 +10,25 @@ const SEBAT_HARGA_COUNTER_KEY = 'sebat_harga_no_seri';
 const CreateReceiptDraftSchema = z.object({
   namaPenerima: z.string().min(1, 'Nama Penerima is required'),
   namaKolejVokasional: z.string().min(1, 'Nama Kolej Vokasional is required'),
-  tajuk: z.string().min(1, 'Tajuk is required'),
+  tajuk: z.string().optional(),
   perkara: z.string().min(1, 'Perkara is required'),
   kuantiti: z.number().int().positive(),
   hargaSeunit: z.number().min(0),
   hargaPostage: z.number().min(0),
   tarikh: z.string().min(1),
-  semester: z.string().min(1, 'Semester is required'),
+  semester: z.string().optional(),
 });
 
 const ResetCounterSchema = z.object({
   startNo: z.number().int().min(1).max(999999),
   resetType: z.enum(['resit', 'sebat_harga']).default('resit'),
 });
+
+const BulkStatusSchema = z.object({
+  action: z.enum(['archive_all', 'restore_all']),
+});
+
+const StatusQuerySchema = z.enum(['active', 'archived']);
 
 const formatNoResit = (value: number) => String(value).padStart(4, '0');
 const formatSebatHargaNo = (value: number) => String(value).padStart(3, '0');
@@ -34,6 +41,20 @@ const ensureCounterTable = async () => {
       "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `);
+};
+
+const ensureReceiptStatusColumns = async () => {
+  const columns = (await prisma.$queryRawUnsafe(`PRAGMA table_info("ReceiptDraft")`)) as Array<{ name: string }>;
+  const hasStatus = columns.some((column) => column.name === 'status');
+  const hasArchivedAt = columns.some((column) => column.name === 'archivedAt');
+
+  if (!hasStatus) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "ReceiptDraft" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'active'`);
+  }
+
+  if (!hasArchivedAt) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "ReceiptDraft" ADD COLUMN "archivedAt" DATETIME`);
+  }
 };
 
 const getOrCreateCounterNextNo = async () => {
@@ -137,15 +158,41 @@ const setSebatHargaCounterNextNo = async (nextNo: number) => {
   );
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   const currentUser = await requireCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const receipts = await prisma.receiptDraft.findMany({
-    orderBy: { createdAt: 'desc' },
-  });
+  await ensureReceiptStatusColumns();
+
+  const { searchParams } = new URL(request.url);
+  const parsedStatus = StatusQuerySchema.safeParse(searchParams.get('status') ?? 'active');
+  const status = parsedStatus.success ? parsedStatus.data : 'active';
+
+  const receipts = (await prisma.$queryRawUnsafe(
+    `
+    SELECT
+      "id",
+      "noResit",
+      "noSeriSebatHarga",
+      "namaPenerima",
+      "namaKolejVokasional",
+      "tajuk",
+      "perkara",
+      "kuantiti",
+      "hargaSeunit",
+      "hargaPostage",
+      "tarikh",
+      "semester",
+      "createdAt",
+      "updatedAt"
+    FROM "ReceiptDraft"
+    WHERE "status" = ?
+    ORDER BY "createdAt" DESC
+    `,
+    status
+  )) as Array<Record<string, unknown>>;
 
   const nextNoResit = await getOrCreateCounterNextNo();
   const nextNoSebatHarga = await getOrCreateSebatHargaCounterNextNo();
@@ -163,6 +210,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  await ensureReceiptStatusColumns();
+
   const json = await request.json().catch(() => null);
   const parsed = CreateReceiptDraftSchema.safeParse(json);
 
@@ -174,6 +223,8 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
+  const autoTajuk = buildSebutHargaTitle(data.perkara);
+  const autoSemester = extractSemesterLabelFromPerkara(data.perkara);
 
   try {
     const currentNextNoResit = await getOrCreateCounterNextNo();
@@ -196,13 +247,13 @@ export async function POST(request: Request) {
         noSeriSebatHarga,
         namaPenerima: data.namaPenerima,
         namaKolejVokasional: data.namaKolejVokasional,
-        tajuk: data.tajuk,
+        tajuk: autoTajuk,
         perkara: data.perkara,
         kuantiti: data.kuantiti,
         hargaSeunit: data.hargaSeunit,
         hargaPostage: data.hargaPostage,
         tarikh: new Date(data.tarikh),
-        semester: data.semester,
+        semester: data.semester?.trim() || autoSemester,
       },
     });
 
@@ -224,9 +275,35 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const json = await request.json().catch(() => null);
-  const parsed = ResetCounterSchema.safeParse(json);
+  await ensureReceiptStatusColumns();
 
+  const json = await request.json().catch(() => null);
+
+  const bulkParsed = BulkStatusSchema.safeParse(json);
+  if (bulkParsed.success) {
+    const { action } = bulkParsed.data;
+    try {
+      if (action === 'archive_all') {
+        await prisma.$executeRawUnsafe(`
+          UPDATE "ReceiptDraft"
+          SET "status" = 'archived', "archivedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "status" = 'active'
+        `);
+      } else {
+        await prisma.$executeRawUnsafe(`
+          UPDATE "ReceiptDraft"
+          SET "status" = 'active', "archivedAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "status" = 'archived'
+        `);
+      }
+
+      return NextResponse.json({ success: true, action });
+    } catch {
+      return NextResponse.json({ error: 'Tidak dapat kemaskini status draft resit.' }, { status: 500 });
+    }
+  }
+
+  const parsed = ResetCounterSchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid data', details: parsed.error.errors },
@@ -264,6 +341,10 @@ export async function DELETE() {
   const currentUser = await requireCurrentUser();
   if (!currentUser) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (currentUser.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {

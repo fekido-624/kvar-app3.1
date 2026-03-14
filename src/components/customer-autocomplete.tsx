@@ -7,6 +7,9 @@ interface Customer {
   id: string;
   name: string;
   kodKV: string;
+  address?: string;
+  postcode?: string;
+  phone?: string;
 }
 
 interface CustomerAutocompleteProps {
