@@ -1,0 +1,19 @@
+services:
+  kvar-app-31:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kvar-app-31
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: file:./data/dev.db
+      AUTH_SECRET: tukar-ke-secret-production-kvar31
+      GEMINI_API_KEY: ""
+    volumes:
+      - ./docker-data-31/data:/app/data
+      - ./docker-data-31/templates:/app/templates
+      - ./docker-data-31/public-templates:/app/public/templates
