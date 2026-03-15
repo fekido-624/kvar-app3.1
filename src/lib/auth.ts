@@ -57,7 +57,7 @@ export const createSession = async (userId: string) => {
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: SESSION_MAX_AGE_SECONDS,
   });
