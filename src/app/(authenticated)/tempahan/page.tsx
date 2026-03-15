@@ -144,6 +144,7 @@ export default function TempahanPage() {
   const [isArchivingAll, setIsArchivingAll] = useState(false);
   const [isRestoringSelected, setIsRestoringSelected] = useState(false);
   const [isArchivingSelected, setIsArchivingSelected] = useState(false);
+  const [isDeletingSelectedArchived, setIsDeletingSelectedArchived] = useState(false);
   const [selectedActiveIds, setSelectedActiveIds] = useState<string[]>([]);
   const [selectedArchivedIds, setSelectedArchivedIds] = useState<string[]>([]);
   const [archiveDateFrom, setArchiveDateFrom] = useState('');
@@ -877,6 +878,53 @@ export default function TempahanPage() {
     }
   };
 
+  const handleDeleteSelectedArchived = async () => {
+    if (selectedArchivedIds.length === 0 || isDeletingSelectedArchived) return;
+
+    const confirmed = window.confirm(
+      `Padam ${selectedArchivedIds.length} draf sejarah dipilih? Data resit dan data parcel berkaitan juga akan dipadam.`
+    );
+    if (!confirmed) return;
+
+    setIsDeletingSelectedArchived(true);
+    try {
+      const results = await Promise.all(
+        selectedArchivedIds.map(async (id) => {
+          const response = await fetch(`/api/tempahan/drafts/${id}`, {
+            method: 'DELETE',
+          });
+          return { id, ok: response.ok };
+        })
+      );
+
+      const failedCount = results.filter((item) => !item.ok).length;
+      await loadDrafts();
+      setSelectedArchivedIds([]);
+
+      if (failedCount > 0) {
+        toast({
+          title: 'Delete Sebahagian',
+          description: `${results.length - failedCount} berjaya, ${failedCount} gagal dipadam.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Delete Berjaya',
+        description: `${results.length} draf sejarah berjaya dipadam.`,
+      });
+    } catch {
+      toast({
+        title: 'Delete Draf Gagal',
+        description: 'Ralat rangkaian semasa memadam draf sejarah dipilih.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingSelectedArchived(false);
+    }
+  };
+
   const handleGenerateInvoiceZip = async () => {
     if (drafts.length === 0 || isGenerating) return;
 
@@ -1402,15 +1450,26 @@ export default function TempahanPage() {
                     />
                   </div>
                   <div className="flex items-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleRestoreSelectedArchived}
-                      disabled={selectedArchivedIds.length === 0 || isRestoringSelected}
-                    >
-                      <RotateCcw className="mr-2 h-4 w-4" />
-                      {isRestoringSelected ? 'Memulihkan...' : `Pulihkan Dipilih (${selectedArchivedIds.length})`}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleRestoreSelectedArchived}
+                        disabled={selectedArchivedIds.length === 0 || isRestoringSelected || isDeletingSelectedArchived}
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        {isRestoringSelected ? 'Memulihkan...' : `Pulihkan Dipilih (${selectedArchivedIds.length})`}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={handleDeleteSelectedArchived}
+                        disabled={selectedArchivedIds.length === 0 || isDeletingSelectedArchived || isRestoringSelected}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        {isDeletingSelectedArchived ? 'Memadam...' : `Delete Dipilih (${selectedArchivedIds.length})`}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}

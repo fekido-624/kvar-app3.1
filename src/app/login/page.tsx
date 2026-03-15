@@ -45,13 +45,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#7b2d3a]/10 via-background to-background">
       <Card className="w-full max-w-md border-none shadow-2xl animate-fade-in">
         <CardHeader className="space-y-1 flex flex-col items-center text-center pb-8">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-            <ShieldCheck className="text-primary-foreground h-10 w-10" />
+          <div className="w-16 h-16 bg-[#7b2d3a] rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+            <ShieldCheck className="text-[#fff7f8] h-10 w-10" />
           </div>
-          <CardTitle className="text-3xl font-bold tracking-tight">KVar3.0</CardTitle>
+          <CardTitle className="text-3xl font-bold tracking-tight">KVar3.1</CardTitle>
           <CardDescription>Enter your credentials to access your account</CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>

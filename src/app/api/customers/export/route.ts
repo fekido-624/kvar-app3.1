@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { prisma } from '@/lib/db';
 import { requireCurrentUser } from '@/lib/auth';
 
@@ -21,19 +21,22 @@ export async function GET() {
     'Kod KV': customer.kodKV,
   }));
 
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  worksheet['!cols'] = [
-    { wch: 28 },
-    { wch: 45 },
-    { wch: 12 },
-    { wch: 18 },
-    { wch: 14 },
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Customers');
+
+  worksheet.columns = [
+    { header: 'Name', key: 'Name', width: 28 },
+    { header: 'Address', key: 'Address', width: 45 },
+    { header: 'Postcode', key: 'Postcode', width: 12 },
+    { header: 'Phone', key: 'Phone', width: 18 },
+    { header: 'Kod KV', key: 'Kod KV', width: 14 },
   ];
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
+  rows.forEach((row) => {
+    worksheet.addRow(row);
+  });
 
-  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  const buffer = await workbook.xlsx.writeBuffer();
   const fileName = `customers-export-${Date.now()}.xlsx`;
 
   return new NextResponse(buffer, {

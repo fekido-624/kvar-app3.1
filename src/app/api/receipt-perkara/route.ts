@@ -42,7 +42,11 @@ export async function GET() {
 
     const map = new Map<string, { id: string; label: string; createdAt: string }>();
     for (const option of manualOptions) {
-      map.set(option.label, option);
+      map.set(option.label, {
+        id: option.id,
+        label: option.label,
+        createdAt: option.createdAt.toISOString(),
+      });
     }
     for (const row of penerbitanRows) {
       if (!map.has(row.perkara)) {

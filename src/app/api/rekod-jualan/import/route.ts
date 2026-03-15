@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { prisma } from '@/lib/db';
 import { requireCurrentUser } from '@/lib/auth';
 import { validateSpreadsheetUpload } from '@/lib/upload-security';
@@ -88,10 +88,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validated.error }, { status: validated.status });
   }
 
-  const workbook = XLSX.read(validated.buffer, { type: 'buffer' });
-  const sheetName = workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[sheetName];
-  const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(validated.buffer as any);
+  const worksheet = workbook.worksheets[0];
+
+  if (!worksheet) {
+    return NextResponse.json({ error: 'No worksheet found in file.' }, { status: 400 });
+  }
+
+  const rawData: unknown[][] = [];
+  worksheet.eachRow({ includeEmpty: true }, (row) => {
+    rawData.push((row.values as unknown[]).slice(1));
+  });
 
   if (rawData.length < 2) {
     return NextResponse.json({ error: 'File kosong atau tiada data.' }, { status: 400 });

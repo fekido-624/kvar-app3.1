@@ -98,7 +98,7 @@ export default function DashboardPage() {
     <div className="animate-fade-in">
       <PageHeader 
         title={`Selamat kembali, ${user?.firstName}`}
-        description="Ringkasan sistem KVar3.0 dan aktiviti terkini."
+        description="Ringkasan sistem KVar3.1 dan aktiviti terkini."
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
@@ -126,7 +126,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             <Button asChild className="justify-start gap-2">
-              <Link href="/receipts">
+              <Link href="/resit-1">
                 <ReceiptText size={16} />
                 Buka Resit
               </Link>
@@ -155,7 +155,7 @@ export default function DashboardPage() {
         <Card className="border-none shadow-sm">
           <CardHeader>
             <CardTitle>Maklumat Sistem</CardTitle>
-            <CardDescription>Butiran konfigurasi KVar3.0 semasa.</CardDescription>
+            <CardDescription>Butiran konfigurasi KVar3.1 semasa.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center py-2 border-b">

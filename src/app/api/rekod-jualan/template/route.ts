@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { requireCurrentUser } from '@/lib/auth';
 
 export async function GET() {
@@ -34,22 +34,23 @@ export async function GET() {
     ],
   ];
 
-  const worksheet = XLSX.utils.aoa_to_sheet(rows);
-  worksheet['!cols'] = [
-    { wch: 72 },
-    { wch: 10 },
-    { wch: 10 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 10 },
-    { wch: 8 },
-    { wch: 26 },
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('RekodJualan');
+  worksheet.addRows(rows);
+
+  worksheet.columns = [
+    { width: 72 },
+    { width: 10 },
+    { width: 10 },
+    { width: 14 },
+    { width: 14 },
+    { width: 14 },
+    { width: 10 },
+    { width: 8 },
+    { width: 26 },
   ];
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'RekodJualan');
-  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  const buffer = await workbook.xlsx.writeBuffer();
 
   return new NextResponse(buffer, {
     headers: {

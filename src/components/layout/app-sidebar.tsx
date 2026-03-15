@@ -29,11 +29,11 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border/50 py-4">
         <div className="flex items-center gap-2 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#7b2d3a] text-[#fff7f8]">
             <ShieldCheck size={20} />
           </div>
           <span className="text-xl font-bold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:hidden">
-            KVar3.0
+            KVar3.1
           </span>
         </div>
       </SidebarHeader>
@@ -61,8 +61,8 @@ export function AppSidebar() {
               </SidebarMenuItem>
 
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === '/receipts'} tooltip="Resit">
-                  <Link href="/receipts">
+                <SidebarMenuButton asChild isActive={pathname === '/resit-1' || pathname === '/receipts'} tooltip="Resit">
+                  <Link href="/resit-1">
                     <ReceiptText />
                     <span>Resit</span>
                   </Link>

@@ -4,7 +4,7 @@ import { AuthProvider } from '@/components/auth-context';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'KVar3.0 | Secure Access Management',
+  title: 'KVar3.1 | Secure Access Management',
   description: 'Professional user management and access control platform.',
 };
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { prisma } from '@/lib/db';
 import { requireCurrentUser } from '@/lib/auth';
 import { validateSpreadsheetUpload } from '@/lib/upload-security';
@@ -45,13 +45,18 @@ export async function POST(request: Request) {
 
     const { buffer } = validated;
 
-    // Parse Excel file
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    
-    // Convert to JSON (skip header row)
-    const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as any);
+    const worksheet = workbook.worksheets[0];
+
+    if (!worksheet) {
+      return NextResponse.json({ error: 'No worksheet found in file' }, { status: 400 });
+    }
+
+    const rawData: unknown[][] = [];
+    worksheet.eachRow({ includeEmpty: true }, (row) => {
+      rawData.push((row.values as unknown[]).slice(1));
+    });
 
     if (rawData.length < 2) {
       return NextResponse.json(

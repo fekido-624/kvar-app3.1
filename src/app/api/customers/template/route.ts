@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 export async function GET() {
   // Create sample data
@@ -10,23 +10,19 @@ export async function GET() {
     ['Kumar A/L Raju', 'No 789, Jalan Melati, Taman Sejahtera', '52000', '014-1234567', 'KV003'],
   ];
 
-  // Create workbook and worksheet
-  const worksheet = XLSX.utils.aoa_to_sheet(sampleData);
-  
-  // Set column widths
-  worksheet['!cols'] = [
-    { wch: 20 }, // Name
-    { wch: 40 }, // Address
-    { wch: 10 }, // Postcode
-    { wch: 15 }, // Phone
-    { wch: 10 }, // Kod KV
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Customers');
+  worksheet.addRows(sampleData);
+
+  worksheet.columns = [
+    { width: 20 }, // Name
+    { width: 40 }, // Address
+    { width: 10 }, // Postcode
+    { width: 15 }, // Phone
+    { width: 10 }, // Kod KV
   ];
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers');
-
-  // Generate buffer
-  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  const buffer = await workbook.xlsx.writeBuffer();
 
   // Return as downloadable file
   return new NextResponse(buffer, {

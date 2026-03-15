@@ -51,13 +51,13 @@ export default function ImportCustomersPage() {
     setIsDragging(false);
     
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls'))) {
+    if (droppedFile && droppedFile.name.endsWith('.xlsx')) {
       setFile(droppedFile);
       setResults(null);
     } else {
       toast({
         title: 'Invalid File',
-        description: 'Sila muat naik fail Excel (.xlsx atau .xls).',
+        description: 'Sila muat naik fail Excel (.xlsx).',
         variant: 'destructive',
       });
     }
@@ -205,7 +205,7 @@ export default function ImportCustomersPage() {
                 type="file"
                 id="file-upload"
                 className="hidden"
-                accept=".xlsx,.xls"
+                accept=".xlsx"
                 onChange={handleFileChange}
               />
               <label htmlFor="file-upload" className="cursor-pointer">
@@ -228,7 +228,7 @@ export default function ImportCustomersPage() {
                     <div>
                       <p className="font-medium">Seret & lepas fail Excel anda di sini</p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        atau klik untuk pilih fail (.xlsx, .xls)
+                        atau klik untuk pilih fail (.xlsx)
                       </p>
                     </div>
                   )}
