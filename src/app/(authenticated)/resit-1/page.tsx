@@ -26,7 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { CustomerAutocomplete } from '@/components/customer-autocomplete';
 import { KVAutocomplete } from '@/components/kv-autocomplete';
 import { ReceiptDraft } from '@/lib/types';
-import { Archive, Download, RefreshCcw, Save, Trash2 } from 'lucide-react';
+import { Archive, Download, RefreshCcw, RotateCcw, Save, Trash2 } from 'lucide-react';
 
 type ModuleOption = {
   id: string;
@@ -44,6 +44,8 @@ type CustomerLite = {
 type ResitDraftRow = ReceiptDraft & {
   source: 'receipts' | 'tempahan';
   tempahanDraftId?: string;
+  status?: 'active' | 'archived';
+  archivedAt?: string | null;
 };
 
 type TempahanDraftApiRow = {
@@ -62,6 +64,8 @@ type TempahanDraftApiRow = {
   semester: string;
   createdAt: string;
   updatedAt: string;
+  status?: 'active' | 'archived';
+  archivedAt?: string | null;
 };
 
 const toMoney = (value: number) => `RM ${value.toFixed(2)}`;
@@ -110,6 +114,8 @@ export default function ResitSatuPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isArchivingSelected, setIsArchivingSelected] = useState(false);
   const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+  const [isRestoringSelected, setIsRestoringSelected] = useState(false);
+  const [searchRekodLama, setSearchRekodLama] = useState('');
 
   const jumlahHarga = useMemo(() => {
     const qty = Number(kuantiti) || 0;
@@ -117,6 +123,21 @@ export default function ResitSatuPage() {
     const postage = Number(hargaPostage) || 0;
     return qty * unit + postage;
   }, [kuantiti, hargaSeunit, hargaPostage]);
+
+  const visibleDrafts = useMemo(() => {
+    let filtered = drafts.filter((d) =>
+      activeTab === 'active' ? d.status !== 'archived' : d.status === 'archived'
+    );
+
+    if (activeTab === 'archived' && searchRekodLama.trim()) {
+      const query = searchRekodLama.trim().toLowerCase();
+      filtered = filtered.filter((d) =>
+        d.namaKolejVokasional.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [drafts, activeTab, searchRekodLama]);
 
   const refreshReceipts = async () => {
     const [receiptResponse, tempahanResponse] = await Promise.all([
@@ -133,7 +154,12 @@ export default function ResitSatuPage() {
     setNoSeriSebatHarga(receiptData.nextNoSeriSebatHarga ?? '001');
 
     const receiptRows: ResitDraftRow[] = (Array.isArray(receiptData.receipts) ? receiptData.receipts : []).map(
-      (draft: ReceiptDraft) => ({ ...draft, source: 'receipts' as const })
+      (draft: ReceiptDraft & { status?: string; archivedAt?: string | null }) => ({
+        ...draft,
+        source: 'receipts' as const,
+        status: draft.status ?? 'active',
+        archivedAt: draft.archivedAt ?? null,
+      })
     );
 
     const tempahanData = tempahanResponse.ok ? await tempahanResponse.json() : { drafts: [] };
@@ -153,6 +179,8 @@ export default function ResitSatuPage() {
       semester: String(draft.semester ?? ''),
       createdAt: String(draft.createdAt ?? ''),
       updatedAt: String(draft.updatedAt ?? ''),
+      status: draft.status ?? 'active',
+      archivedAt: draft.archivedAt ?? null,
       source: 'tempahan' as const,
       tempahanDraftId: draft.id,
     }));
@@ -305,7 +333,6 @@ export default function ResitSatuPage() {
 
       const noOrder = getNoOrderFromNoResit(noResitCreated || noResit);
 
-      // Resit-1 tiada borang alamat, jadi cipta placeholder parcel untuk sync Tempahan.
       const parcelResponse = await fetch('/api/data-parcel/drafts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -429,7 +456,7 @@ export default function ResitSatuPage() {
       return;
     }
 
-    if (drafts.length === 0) {
+    if (visibleDrafts.length === 0) {
       toast({
         title: 'Tiada Draf',
         description: 'Sila simpan sekurang-kurangnya satu draf untuk eksport.',
@@ -505,7 +532,7 @@ export default function ResitSatuPage() {
 
   const toggleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(drafts.map((draft) => draft.id));
+      setSelectedIds(visibleDrafts.map((draft) => draft.id));
       return;
     }
     setSelectedIds([]);
@@ -535,18 +562,22 @@ export default function ResitSatuPage() {
         const row = drafts.find((item) => item.id === id);
         if (!row) continue;
 
-        if (row.source === 'tempahan' && row.tempahanDraftId) {
-          await fetch(`/api/tempahan/drafts/${row.tempahanDraftId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'archive' }),
-          });
-        } else {
-          await fetch(`/api/receipts/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'archive' }),
-          });
+        const response =
+          row.source === 'tempahan' && row.tempahanDraftId
+            ? await fetch(`/api/tempahan/drafts/${row.tempahanDraftId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'archive' }),
+              })
+            : await fetch(`/api/receipts/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'archive' }),
+              });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error ?? `Gagal archive draf ${row.noResit}`);
         }
       }
 
@@ -561,6 +592,55 @@ export default function ResitSatuPage() {
       });
     } finally {
       setIsArchivingSelected(false);
+    }
+  };
+
+  const handleRestoreSelected = async () => {
+    if (selectedIds.length === 0) {
+      toast({
+        title: 'Tiada Pilihan',
+        description: 'Tick sekurang-kurangnya satu draf untuk dipulihkan.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsRestoringSelected(true);
+    try {
+      for (const id of selectedIds) {
+        const row = drafts.find((item) => item.id === id);
+        if (!row) continue;
+
+        const response =
+          row.source === 'tempahan' && row.tempahanDraftId
+            ? await fetch(`/api/tempahan/drafts/${row.tempahanDraftId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'restore' }),
+              })
+            : await fetch(`/api/receipts/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'restore' }),
+              });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error ?? `Gagal pulihkan draf ${row.noResit}`);
+        }
+      }
+
+      toast({ title: 'Pulih Berjaya', description: `${selectedIds.length} draf dipulihkan ke Draft.` });
+      setSelectedIds([]);
+      await refreshReceipts();
+    } catch (error) {
+      toast({
+        title: 'Pulih Gagal',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRestoringSelected(false);
     }
   };
 
@@ -807,14 +887,21 @@ export default function ResitSatuPage() {
               <Button
                 type="button"
                 variant={activeTab === 'active' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('active')}
+                onClick={() => {
+                  setActiveTab('active');
+                  setSearchRekodLama('');
+                  setSelectedIds([]);
+                }}
               >
                 Draft
               </Button>
               <Button
                 type="button"
                 variant={activeTab === 'archived' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('archived')}
+                onClick={() => {
+                  setActiveTab('archived');
+                  setSelectedIds([]);
+                }}
               >
                 Rekod Lama
               </Button>
@@ -832,24 +919,57 @@ export default function ResitSatuPage() {
                     <Archive className="mr-2 h-4 w-4" />
                     {isArchivingSelected ? 'Memindah...' : 'Pindah ke Rekod Lama'}
                   </Button>
-                  <Button type="button" onClick={handleExportZip} disabled={isExportingZip || drafts.length === 0}>
+                  <Button type="button" onClick={handleExportZip} disabled={isExportingZip || visibleDrafts.length === 0}>
                     <Download className="mr-2 h-4 w-4" />
-                    {isExportingZip ? 'Mengeksport...' : `Eksport ZIP (${drafts.length})`}
+                    {isExportingZip ? 'Mengeksport...' : `Eksport ZIP (${visibleDrafts.length})`}
                   </Button>
                 </>
               ) : (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={handleDeleteSelected}
-                  disabled={isDeletingSelected || selectedIds.length === 0}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  {isDeletingSelected ? 'Memadam...' : 'Padam Pilihan'}
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRestoreSelected}
+                    disabled={isRestoringSelected || selectedIds.length === 0}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    {isRestoringSelected ? 'Memulih...' : 'Pulihkan Pilihan'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={handleDeleteSelected}
+                    disabled={isDeletingSelected || selectedIds.length === 0}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {isDeletingSelected ? 'Memadam...' : 'Padam Pilihan'}
+                  </Button>
+                </>
               )}
             </div>
           </div>
+
+          {activeTab === 'archived' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Label htmlFor="search-rekod-lama" className="whitespace-nowrap text-sm">
+                Cari KV:
+              </Label>
+              <Input
+                id="search-rekod-lama"
+                type="text"
+                placeholder="Taip nama/kod KV..."
+                value={searchRekodLama}
+                onChange={(e) => setSearchRekodLama(e.target.value)}
+                className="max-w-sm"
+              />
+              {searchRekodLama && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setSearchRekodLama('')}>
+                  Reset
+                </Button>
+              )}
+              <span className="ml-auto text-sm text-muted-foreground">{visibleDrafts.length} rekod dijumpai</span>
+            </div>
+          )}
 
           <div className="flex justify-end">
             <span className="text-sm text-muted-foreground">Dipilih: {selectedIds.length}</span>
@@ -861,7 +981,7 @@ export default function ResitSatuPage() {
                 <TableRow>
                   <TableHead className="w-[44px]">
                     <Checkbox
-                      checked={drafts.length > 0 && selectedIds.length === drafts.length}
+                      checked={visibleDrafts.length > 0 && selectedIds.length === visibleDrafts.length}
                       onCheckedChange={(checked) => toggleSelectAll(Boolean(checked))}
                       aria-label="Pilih semua"
                     />
@@ -875,14 +995,16 @@ export default function ResitSatuPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {drafts.length === 0 ? (
+                {visibleDrafts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      Tiada draf lagi. Simpan borang di atas untuk mula bina senarai.
+                      {activeTab === 'active'
+                        ? 'Tiada draf lagi. Simpan borang di atas untuk mula bina senarai.'
+                        : 'Tiada rekod lama.'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  drafts.map((draft) => {
+                  visibleDrafts.map((draft) => {
                     const total = draft.kuantiti * draft.hargaSeunit + draft.hargaPostage;
                     return (
                       <TableRow key={draft.id}>

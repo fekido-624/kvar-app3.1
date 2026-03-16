@@ -149,6 +149,7 @@ export default function TempahanPage() {
   const [selectedArchivedIds, setSelectedArchivedIds] = useState<string[]>([]);
   const [archiveDateFrom, setArchiveDateFrom] = useState('');
   const [archiveDateTo, setArchiveDateTo] = useState('');
+  const [searchKV, setSearchKV] = useState('');
   const { toast } = useToast();
 
   const jumlah = useMemo(() => {
@@ -181,9 +182,13 @@ export default function TempahanPage() {
         return false;
       }
 
+      if (searchKV.trim() && !item.namaKolejVokasional.toLowerCase().includes(searchKV.trim().toLowerCase())) {
+        return false;
+      }
+
       return true;
     });
-  }, [archiveDateFrom, archiveDateTo, draftStatusView, drafts]);
+  }, [archiveDateFrom, archiveDateTo, searchKV, draftStatusView, drafts]);
 
   const loadDrafts = async () => {
     setIsLoading(true);
@@ -244,6 +249,7 @@ export default function TempahanPage() {
     if (draftStatusView !== 'archived') {
       setArchiveDateFrom('');
       setArchiveDateTo('');
+      setSearchKV('');
     }
   }, [draftStatusView]);
 
@@ -1408,14 +1414,6 @@ export default function TempahanPage() {
                   <Download className="mr-2 h-4 w-4" />
                   Jana XLSX Parcel
                 </Button>
-                <Button type="button" variant="outline" onClick={handleArchiveOrRestoreAll} disabled={drafts.length === 0 || isArchivingAll}>
-                  {draftStatusView === 'active' ? <Archive className="mr-2 h-4 w-4" /> : <RotateCcw className="mr-2 h-4 w-4" />}
-                  {isArchivingAll
-                    ? 'Sedang Kemaskini...'
-                    : draftStatusView === 'active'
-                      ? 'Arkibkan Semua'
-                      : 'Pulihkan Semua'}
-                </Button>
                 {draftStatusView === 'active' && (
                   <Button
                     type="button"
@@ -1431,6 +1429,16 @@ export default function TempahanPage() {
 
               {draftStatusView === 'archived' && (
                 <div className="grid gap-3 rounded-md border border-border/70 p-3 md:grid-cols-[1fr_1fr_auto]">
+                  <div className="space-y-1">
+                    <Label htmlFor="searchKV">Cari KV</Label>
+                    <Input
+                      id="searchKV"
+                      type="text"
+                      placeholder="Taip nama/kod KV..."
+                      value={searchKV}
+                      onChange={(e) => setSearchKV(e.target.value)}
+                    />
+                  </div>
                   <div className="space-y-1">
                     <Label htmlFor="archiveDateFrom">Tarikh Dari</Label>
                     <Input
@@ -1505,7 +1513,6 @@ export default function TempahanPage() {
                       <TableHead>Penerima</TableHead>
                       <TableHead>Bil. Alamat</TableHead>
                       <TableHead>Bil. Parcel</TableHead>
-                      <TableHead>Status</TableHead>
                       <TableHead className="text-right">Jumlah</TableHead>
                       <TableHead className="text-right">Tindakan</TableHead>
                     </TableRow>
@@ -1513,7 +1520,7 @@ export default function TempahanPage() {
                   <TableBody>
                     {filteredDrafts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">
                           Belum ada draf tempahan.
                         </TableCell>
                       </TableRow>
@@ -1544,7 +1551,6 @@ export default function TempahanPage() {
                           <TableCell>{item.namaPenerima}</TableCell>
                           <TableCell>{item.bilanganAlamat}</TableCell>
                           <TableCell>{item.bilanganParcel}</TableCell>
-                          <TableCell>{item.status === 'archived' ? 'Sejarah' : 'Semasa'}</TableCell>
                           <TableCell className="text-right">
                             {toCurrency(item.kuantiti * item.hargaSeunit + item.hargaPostage)}
                           </TableCell>
