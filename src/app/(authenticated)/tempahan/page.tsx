@@ -1234,7 +1234,7 @@ export default function TempahanPage() {
     <div className="animate-fade-in">
       <PageHeader
         title="Tempahan"
-        description="Satu tempat untuk simpan draf tempahan dan jana Invois PDF, Alamat PDF, serta Data Parcel XLSX."
+        description="."
       />
 
       <div className="grid gap-6 xl:grid-cols-[470px_1fr]">
@@ -1242,12 +1242,12 @@ export default function TempahanPage() {
           <CardHeader>
             <CardTitle>Borang Tempahan</CardTitle>
             <CardDescription>
-              Isi maklumat resit, bilangan alamat, dan jumlah parcel dalam satu flow.
+              
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2 pb-2 border-b">
-              <Label>Penerbitan (Wajib)</Label>
+              <Label>Pilih Modul</Label>
               <Select
                 value={form.penerbitanId}
                 onValueChange={(value) => {

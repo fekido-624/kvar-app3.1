@@ -618,15 +618,15 @@ export default function ResitSatuPage() {
   return (
     <div className="max-w-7xl mx-auto animate-fade-in space-y-6">
       <PageHeader
-        title="Resit-1"
-        description="Bina draf resit: auto nombor siri, auto carian penerima/KV, pilih modul, dan eksport ZIP PDF."
+        title="Jana Resit"
+        description="Cipta Custom Resit untuk Customer Tertentu."
       />
 
       <Card>
         <CardHeader>
           <CardTitle>Borang Resit</CardTitle>
           <CardDescription>
-            Tajuk sebut harga akan dijana automatik di backend untuk PDF invoice dan tidak dipaparkan di borang ini.
+            
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -710,7 +710,7 @@ export default function ResitSatuPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Perkara (Modul dari Rekod Jualan)</Label>
+              <Label>Pilih Modul</Label>
               <Select value={selectedModuleId} onValueChange={handleSelectModule}>
                 <SelectTrigger>
                   <SelectValue placeholder={isLoading ? 'Memuat modul...' : 'Pilih modul perkara'} />
@@ -726,7 +726,7 @@ export default function ResitSatuPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Harga Seunit (auto dari modul, boleh edit)</Label>
+              <Label>Harga Seunit</Label>
               <Input
                 type="number"
                 min={0}
@@ -750,7 +750,7 @@ export default function ResitSatuPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Harga Postage</Label>
+              <Label>Harga Penghantaran</Label>
               <Input
                 type="number"
                 min={0}
@@ -798,7 +798,7 @@ export default function ResitSatuPage() {
         <CardHeader>
           <CardTitle>Senarai Draf Resit</CardTitle>
           <CardDescription>
-            Boleh simpan banyak draf, kemudian eksport semua sekali dalam ZIP.
+            
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -845,7 +845,7 @@ export default function ResitSatuPage() {
                   disabled={isDeletingSelected || selectedIds.length === 0}
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  {isDeletingSelected ? 'Memadam...' : 'Delete Dipilih'}
+                  {isDeletingSelected ? 'Memadam...' : 'Padam Pilihan'}
                 </Button>
               )}
             </div>
