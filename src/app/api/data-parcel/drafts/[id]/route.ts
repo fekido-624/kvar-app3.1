@@ -7,9 +7,14 @@ type Params = {
   params: Promise<{ id: string }>;
 };
 
-const PatchDraftSchema = z.object({
-  action: z.enum(['archive', 'restore']),
-});
+const PatchDraftSchema = z.union([
+  z.object({
+    action: z.enum(['archive', 'restore']),
+  }),
+  z.object({
+    bilanganParcel: z.number().int().min(1),
+  }),
+]);
 
 const ensureDataParcelDraftTable = async () => {
   await prisma.$executeRawUnsafe(`
@@ -59,6 +64,19 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   try {
+    if ('bilanganParcel' in parsed.data) {
+      await prisma.$executeRawUnsafe(
+        `
+        UPDATE "DataParcelDraft"
+        SET "bilanganParcel" = ?, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "id" = ?
+        `,
+        parsed.data.bilanganParcel,
+        id
+      );
+      return NextResponse.json({ success: true, action: 'update_bilanganParcel' });
+    }
+
     if (parsed.data.action === 'archive') {
       await prisma.$executeRawUnsafe(
         `

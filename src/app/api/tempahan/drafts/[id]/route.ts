@@ -7,9 +7,14 @@ type Params = {
   params: Promise<{ id: string }>;
 };
 
-const PatchDraftSchema = z.object({
-  action: z.enum(['archive', 'restore']),
-});
+const PatchDraftSchema = z.union([
+  z.object({
+    action: z.enum(['archive', 'restore']),
+  }),
+  z.object({
+    bilanganParcel: z.number().int().min(1),
+  }),
+]);
 
 const ensureSupportTables = async () => {
   await prisma.$executeRawUnsafe(`
@@ -72,9 +77,37 @@ export async function PATCH(request: Request, { params }: Params) {
     );
   }
 
-  const { action } = parsed.data;
-
   try {
+    if ('bilanganParcel' in parsed.data) {
+      const rows = (await prisma.$queryRawUnsafe(
+        `
+        SELECT "dataParcelDraftId"
+        FROM "TempahanDraft"
+        WHERE "id" = ?
+        LIMIT 1
+        `,
+        id
+      )) as Array<{ dataParcelDraftId: string }>;
+
+      if (rows.length === 0) {
+        return NextResponse.json({ error: 'Draft not found.' }, { status: 404 });
+      }
+
+      await prisma.$executeRawUnsafe(
+        `
+        UPDATE "DataParcelDraft"
+        SET "bilanganParcel" = ?, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "id" = ?
+        `,
+        parsed.data.bilanganParcel,
+        rows[0].dataParcelDraftId
+      );
+
+      return NextResponse.json({ success: true, action: 'update_bilanganParcel' });
+    }
+
+    const { action } = parsed.data;
+
     if (action === 'archive') {
       await prisma.$executeRawUnsafe(
         `

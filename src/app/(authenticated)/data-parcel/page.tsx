@@ -36,6 +36,7 @@ type ParcelEntry = {
   noPhone: string;
   noOrder: string;
   bilanganParcel: number;
+  source: 'tempahan' | 'manual';
 };
 
 const emptyForm = {
@@ -55,6 +56,7 @@ export default function DataParcelPage() {
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [isUpdatingDraftId, setIsUpdatingDraftId] = useState<string | null>(null);
+  const [isUpdatingParcelId, setIsUpdatingParcelId] = useState<string | null>(null);
   const [isUpdatingAllDrafts, setIsUpdatingAllDrafts] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
@@ -62,14 +64,28 @@ export default function DataParcelPage() {
   const loadDrafts = async () => {
     setIsLoadingDrafts(true);
     try {
-      const response = await fetch(`/api/data-parcel/drafts?status=${activeTab}`, { cache: 'no-store' });
+      const response = await fetch(`/api/tempahan/drafts?status=${activeTab}`, { cache: 'no-store' });
       if (!response.ok) {
+        setEntries([]);
         return;
       }
 
       const data = await response.json();
       const drafts = Array.isArray(data.drafts) ? data.drafts : [];
-      setEntries(drafts);
+      const eligibleDrafts = drafts.filter((item: Record<string, unknown>) => Number(item.hargaPostage ?? 0) > 0);
+      const mapped: ParcelEntry[] = eligibleDrafts.map((item: Record<string, unknown>) => ({
+        id: String(item.id ?? ''),
+        namaCustomer: String(item.namaPenerima ?? ''),
+        alamat: String(item.alamat ?? ''),
+        poskod: String(item.poskod ?? ''),
+        kv: String(item.namaKolejVokasional ?? ''),
+        noPhone: String(item.noPhone ?? ''),
+        noOrder: String(item.noOrder ?? item.noResit ?? ''),
+        bilanganParcel: Number(item.bilanganParcel ?? 1),
+        source: 'tempahan',
+      }));
+
+      setEntries(mapped);
     } finally {
       setIsLoadingDrafts(false);
     }
@@ -190,7 +206,7 @@ export default function DataParcelPage() {
 
     setIsUpdatingDraftId(entryId);
     try {
-      const response = await fetch(`/api/data-parcel/drafts/${entryId}`, {
+      const response = await fetch(`/api/tempahan/drafts/${entryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
@@ -224,6 +240,59 @@ export default function DataParcelPage() {
       });
     } finally {
       setIsUpdatingDraftId(null);
+    }
+  };
+
+  const handleUpdateBilanganParcel = async (entryId: string, rawValue: string) => {
+    if (activeTab !== 'active') return;
+
+    const bilanganParcel = Number(rawValue);
+    if (!Number.isInteger(bilanganParcel) || bilanganParcel < 1) {
+      toast({
+        title: 'Bilangan Parcel tidak sah',
+        description: 'Bilangan Parcel mesti nombor bulat 1 atau lebih.',
+        variant: 'destructive',
+      });
+      await loadDrafts();
+      return;
+    }
+
+    const current = entries.find((entry) => entry.id === entryId);
+    if (!current || current.bilanganParcel === bilanganParcel) return;
+
+    setIsUpdatingParcelId(entryId);
+    try {
+      const response = await fetch(`/api/tempahan/drafts/${entryId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bilanganParcel }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        toast({
+          title: 'Kemaskini gagal',
+          description: data.error ?? 'Tidak dapat kemaskini Bilangan Parcel.',
+          variant: 'destructive',
+        });
+        await loadDrafts();
+        return;
+      }
+
+      setEntries((prev) =>
+        prev.map((entry) =>
+          entry.id === entryId ? { ...entry, bilanganParcel } : entry
+        )
+      );
+    } catch {
+      toast({
+        title: 'Kemaskini gagal',
+        description: 'Ralat network/server semasa kemaskini Bilangan Parcel.',
+        variant: 'destructive',
+      });
+      await loadDrafts();
+    } finally {
+      setIsUpdatingParcelId(null);
     }
   };
 
@@ -300,7 +369,7 @@ export default function DataParcelPage() {
 
     setIsUpdatingAllDrafts(true);
     try {
-      const response = await fetch('/api/data-parcel/drafts', {
+      const response = await fetch('/api/tempahan/drafts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
@@ -494,7 +563,25 @@ export default function DataParcelPage() {
                         <TableCell className="font-medium">{item.kv}</TableCell>
                         <TableCell>{item.noPhone}</TableCell>
                         <TableCell>{item.noOrder}</TableCell>
-                        <TableCell className="text-right">{item.bilanganParcel}</TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.bilanganParcel}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              const next = value === '' ? 1 : Number(value);
+                              setEntries((prev) =>
+                                prev.map((entry) =>
+                                  entry.id === item.id ? { ...entry, bilanganParcel: next } : entry
+                                )
+                              );
+                            }}
+                            onBlur={(e) => handleUpdateBilanganParcel(item.id, e.target.value)}
+                            disabled={activeTab !== 'active' || isUpdatingParcelId === item.id}
+                            className="ml-auto h-8 w-24 text-right"
+                          />
+                        </TableCell>
                         <TableCell className="text-right">
                           <Button
                             type="button"
