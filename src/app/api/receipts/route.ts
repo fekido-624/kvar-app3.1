@@ -185,6 +185,8 @@ export async function GET(request: Request) {
       "hargaPostage",
       "tarikh",
       "semester",
+      "status",
+      "archivedAt",
       "createdAt",
       "updatedAt"
     FROM "ReceiptDraft"

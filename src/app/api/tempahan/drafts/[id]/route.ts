@@ -117,6 +117,14 @@ export async function PATCH(request: Request, { params }: Params) {
         `,
         id
       );
+      await prisma.$executeRawUnsafe(
+        `
+        UPDATE "ReceiptDraft"
+        SET "status" = 'archived', "archivedAt" = CURRENT_TIMESTAMP, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "id" = (SELECT "receiptDraftId" FROM "TempahanDraft" WHERE "id" = ?)
+        `,
+        id
+      );
       return NextResponse.json({ success: true, action });
     }
 
@@ -125,6 +133,14 @@ export async function PATCH(request: Request, { params }: Params) {
       UPDATE "TempahanDraft"
       SET "status" = 'active', "archivedAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
       WHERE "id" = ?
+      `,
+      id
+    );
+    await prisma.$executeRawUnsafe(
+      `
+      UPDATE "ReceiptDraft"
+      SET "status" = 'active', "archivedAt" = NULL, "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = (SELECT "receiptDraftId" FROM "TempahanDraft" WHERE "id" = ?)
       `,
       id
     );
