@@ -38,6 +38,16 @@ type CustomerSelection = {
   phone?: string;
 };
 
+const emptyForm = {
+  bil: '',
+  kv: '',
+  nama: '',
+  alamat: '',
+  poskod: '',
+  noPhone: '',
+  bilanganAlamat: '1',
+};
+
 type AlamatEntry = typeof emptyForm & { id: number };
 
 type PreviewRow = {
@@ -63,22 +73,12 @@ const chunkRows = (rows: PreviewRow[], size: number) => {
   return chunks;
 };
 
-const emptyForm = {
-  bil: '',
-  kv: '',
-  nama: '',
-  alamat: '',
-  poskod: '',
-  noPhone: '',
-  bilanganAlamat: '1',
-};
-
-export default function AddressGeneratorPage() {
+export default function AddressGeneratorTestPage() {
 	const [form, setForm] = useState(emptyForm);
 	const [senarai, setSenarai] = useState<AlamatEntry[]>(() => {
 		if (typeof window === 'undefined') return [];
 		try {
-			const saved = localStorage.getItem('kvar-senarai-alamat');
+			const saved = localStorage.getItem('senarai-alamat');
 			return saved ? JSON.parse(saved) : [];
 		} catch {
 			return [];
@@ -89,7 +89,7 @@ export default function AddressGeneratorPage() {
 
 	const updateSenarai = (next: AlamatEntry[]) => {
 		setSenarai(next);
-		localStorage.setItem('kvar-senarai-alamat', JSON.stringify(next));
+		localStorage.setItem('senarai-alamat', JSON.stringify(next));
 	};
 
 	const toggleSelected = (id: number) => {
@@ -352,7 +352,7 @@ export default function AddressGeneratorPage() {
 			</AlertDialog>
 
 			<PageHeader
-				title="Penjana Alamat"
+				title="Penjana Alamat Test"
 				description="Isi maklumat untuk jana alamat. KV dan Nama menyokong auto search + auto fill data berkaitan."
 			/>
 

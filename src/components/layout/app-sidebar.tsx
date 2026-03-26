@@ -96,15 +96,6 @@ export function AppSidebar() {
               </SidebarMenuItem>
 
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={pathname === '/address-generator-test'} tooltip="Penjana Alamat Test" onClick={handleNavClick} className="text-lg md:text-base md:[&_svg]:w-5 md:[&_svg]:h-5 [&_svg]:w-6 [&_svg]:h-6">
-                  <Link href="/address-generator-test">
-                    <MapPinned />
-                    <span>Penjana Alamat Test</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={pathname === '/data-parcel'} tooltip="Data Parcel" onClick={handleNavClick} className="text-lg md:text-base md:[&_svg]:w-5 md:[&_svg]:h-5 [&_svg]:w-6 [&_svg]:h-6">
                   <Link href="/data-parcel">
                     <Package />
