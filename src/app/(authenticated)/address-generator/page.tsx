@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Archive } from 'lucide-react';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { PageHeader } from '@/components/layout/page-header';
@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { KVAutocomplete } from '@/components/kv-autocomplete';
+import { CustomerAutocomplete } from '@/components/customer-autocomplete';
 import { useToast } from '@/hooks/use-toast';
 
 type AddressEntry = {
@@ -91,6 +92,9 @@ const isSamePendingCustomer = (left: PendingCustomer, right: PendingCustomer) =>
   left.poskod === right.poskod &&
   left.noPhone === right.noPhone;
 
+const ADDRESS_ACTIVE_STORAGE_KEY = 'kvar-address-generator-active-entries';
+const ADDRESS_ARCHIVED_STORAGE_KEY = 'kvar-address-generator-archived-entries';
+
 export default function AddressGeneratorPage() {
   const [form, setForm] = useState(emptyForm);
   const [entries, setEntries] = useState<AddressEntry[]>([]);
@@ -100,6 +104,38 @@ export default function AddressGeneratorPage() {
   const [isSavingPendingCustomer, setIsSavingPendingCustomer] = useState(false);
   const { toast } = useToast();
   const activePendingCustomer = pendingCustomers[0] ?? null;
+
+  useEffect(() => {
+    try {
+      const savedActiveRaw = localStorage.getItem(ADDRESS_ACTIVE_STORAGE_KEY);
+      const savedArchivedRaw = localStorage.getItem(ADDRESS_ARCHIVED_STORAGE_KEY);
+
+      if (savedActiveRaw) {
+        const savedActive = JSON.parse(savedActiveRaw) as AddressEntry[];
+        if (Array.isArray(savedActive)) {
+          setEntries(savedActive);
+        }
+      }
+
+      if (savedArchivedRaw) {
+        const savedArchived = JSON.parse(savedArchivedRaw) as AddressEntry[];
+        if (Array.isArray(savedArchived)) {
+          setArchivedEntries(savedArchived);
+        }
+      }
+    } catch {
+      localStorage.removeItem(ADDRESS_ACTIVE_STORAGE_KEY);
+      localStorage.removeItem(ADDRESS_ARCHIVED_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(ADDRESS_ACTIVE_STORAGE_KEY, JSON.stringify(entries));
+  }, [entries]);
+
+  useEffect(() => {
+    localStorage.setItem(ADDRESS_ARCHIVED_STORAGE_KEY, JSON.stringify(archivedEntries));
+  }, [archivedEntries]);
 
   const bilCellStyle = {
     fontSize: '12px',
@@ -579,7 +615,7 @@ export default function AddressGeneratorPage() {
     });
 
     const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -661,7 +697,18 @@ export default function AddressGeneratorPage() {
 
             <div className="space-y-2">
               <Label htmlFor="nama">Nama</Label>
-              <Input id="nama" value={form.nama} onChange={(e) => updateForm('nama', e.target.value)} placeholder="Contoh: Pn. Nur Syahira bt Hamzah" />
+              <CustomerAutocomplete
+                value={form.nama}
+                onValueChange={(value) => updateForm('nama', value)}
+                onCustomerSelect={(customer) => {
+                  updateForm('nama', customer.name);
+                  if (customer.address) updateForm('alamat', customer.address);
+                  if (customer.postcode) updateForm('poskod', customer.postcode);
+                  if (customer.phone) updateForm('noPhone', customer.phone);
+                  if (customer.kodKV && !form.kv.trim()) updateForm('kv', customer.kodKV);
+                }}
+                placeholder="Taip nama untuk cari pelanggan"
+              />
             </div>
 
             <div className="space-y-2">

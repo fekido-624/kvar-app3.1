@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { KVAutocomplete } from '@/components/kv-autocomplete';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -55,9 +56,9 @@ export default function DataParcelPage() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isLoadingDrafts, setIsLoadingDrafts] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
-  const [isUpdatingDraftId, setIsUpdatingDraftId] = useState<string | null>(null);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [isUpdatingParcelId, setIsUpdatingParcelId] = useState<string | null>(null);
-  const [isUpdatingAllDrafts, setIsUpdatingAllDrafts] = useState(false);
+  const [isUpdatingSelectedStatus, setIsUpdatingSelectedStatus] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
@@ -99,6 +100,18 @@ export default function DataParcelPage() {
     () => entries.reduce((sum, item) => sum + item.bilanganParcel, 0),
     [entries]
   );
+
+  useEffect(() => {
+    const entryIdSet = new Set(entries.map((entry) => entry.id));
+    setSelectedEntryIds((prev) => prev.filter((id) => entryIdSet.has(id)));
+  }, [entries]);
+
+  const selectedEntries = useMemo(
+    () => entries.filter((entry) => selectedEntryIds.includes(entry.id)),
+    [entries, selectedEntryIds]
+  );
+
+  const allSelected = entries.length > 0 && selectedEntryIds.length === entries.length;
 
   const updateForm = (field: keyof typeof emptyForm, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -201,48 +214,6 @@ export default function DataParcelPage() {
     }
   };
 
-  const handleUpdateEntryStatus = async (entryId: string, action: 'archive' | 'restore') => {
-    if (isUpdatingDraftId) return;
-
-    setIsUpdatingDraftId(entryId);
-    try {
-      const response = await fetch(`/api/tempahan/drafts/${entryId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-
-      if (!response.ok) {
-        toast({
-          title: action === 'archive' ? 'Arkib gagal' : 'Pulih gagal',
-          description:
-            action === 'archive'
-              ? 'Tidak dapat arkibkan draft data parcel.'
-              : 'Tidak dapat pulihkan draft data parcel.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      await loadDrafts();
-      toast({
-        title: action === 'archive' ? 'Data diarkibkan' : 'Data dipulihkan',
-        description:
-          action === 'archive'
-            ? 'Draft data parcel dipindahkan ke Sejarah.'
-            : 'Draft data parcel dipindahkan ke Semasa.',
-      });
-    } catch {
-      toast({
-        title: action === 'archive' ? 'Arkib gagal' : 'Pulih gagal',
-        description: 'Ralat network/server semasa kemas kini status draft data parcel.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsUpdatingDraftId(null);
-    }
-  };
-
   const handleUpdateBilanganParcel = async (entryId: string, rawValue: string) => {
     if (activeTab !== 'active') return;
 
@@ -296,8 +267,8 @@ export default function DataParcelPage() {
     }
   };
 
-  const handleExportXlsx = async () => {
-    if (entries.length === 0 || isExporting) return;
+  const handleExportSelectedXlsx = async () => {
+    if (selectedEntries.length === 0 || isExporting) return;
 
     setIsExporting(true);
     try {
@@ -307,7 +278,7 @@ export default function DataParcelPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          entries: entries.map((entry) => ({
+          entries: selectedEntries.map((entry) => ({
             namaCustomer: entry.namaCustomer,
             alamat: entry.alamat,
             poskod: entry.poskod,
@@ -344,7 +315,7 @@ export default function DataParcelPage() {
 
       toast({
         title: 'Export berjaya',
-        description: 'Fail XLSX data parcel berjaya dijana ikut template.',
+        description: `Fail XLSX data parcel berjaya dijana untuk ${selectedEntries.length} entri dipilih.`,
       });
     } catch {
       toast({
@@ -357,52 +328,62 @@ export default function DataParcelPage() {
     }
   };
 
-  const handleUpdateAllDraftsStatus = async (action: 'archive_all' | 'restore_all') => {
-    if (entries.length === 0 || isUpdatingAllDrafts) return;
+  const handleUpdateSelectedStatus = async () => {
+    if (selectedEntryIds.length === 0 || isUpdatingSelectedStatus) return;
+
+    const action = activeTab === 'active' ? 'archive' : 'restore';
 
     const confirmed = window.confirm(
-      action === 'archive_all'
-        ? 'Pindahkan semua draft semasa ke Sejarah?'
-        : 'Pulihkan semua draft sejarah ke Semasa?'
+      action === 'archive'
+        ? `Arkibkan ${selectedEntryIds.length} draft yang dipilih?`
+        : `Pulihkan ${selectedEntryIds.length} draft yang dipilih ke Semasa?`
     );
     if (!confirmed) return;
 
-    setIsUpdatingAllDrafts(true);
+    setIsUpdatingSelectedStatus(true);
     try {
-      const response = await fetch('/api/tempahan/drafts', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
+      const requests = selectedEntryIds.map((entryId) =>
+        fetch(`/api/tempahan/drafts/${entryId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action }),
+        })
+      );
+      const results = await Promise.all(requests);
+      const hasFailed = results.some((response) => !response.ok);
 
-      if (!response.ok) {
+      if (hasFailed) {
         toast({
-          title: action === 'archive_all' ? 'Arkib gagal' : 'Pulih gagal',
+          title: action === 'archive' ? 'Arkib gagal' : 'Pulih gagal',
           description:
-            action === 'archive_all'
-              ? 'Tidak dapat arkibkan semua draft data parcel.'
-              : 'Tidak dapat pulihkan semua draft data parcel.',
+            action === 'archive'
+              ? 'Sebahagian draft gagal diarkibkan. Sila cuba lagi.'
+              : 'Sebahagian draft gagal dipulihkan. Sila cuba lagi.',
           variant: 'destructive',
         });
         return;
       }
 
       await loadDrafts();
+      setSelectedEntryIds([]);
       toast({
-        title: action === 'archive_all' ? 'Semua draft diarkibkan' : 'Semua draft dipulihkan',
+        title: action === 'archive' ? 'Data diarkibkan' : 'Data dipulihkan',
         description:
-          action === 'archive_all'
-            ? 'Semua draft semasa dipindahkan ke Sejarah.'
-            : 'Semua draft sejarah dipindahkan ke Semasa.',
+          action === 'archive'
+            ? 'Draft dipilih berjaya dipindahkan ke Sejarah.'
+            : 'Draft dipilih berjaya dipindahkan ke Semasa.',
       });
     } catch {
       toast({
-        title: action === 'archive_all' ? 'Arkib gagal' : 'Pulih gagal',
-        description: 'Ralat network/server semasa kemas kini semua draft data parcel.',
+        title: action === 'archive' ? 'Arkib gagal' : 'Pulih gagal',
+        description:
+          action === 'archive'
+            ? 'Ralat network/server semasa arkibkan draft dipilih.'
+            : 'Ralat network/server semasa pulihkan draft dipilih.',
         variant: 'destructive',
       });
     } finally {
-      setIsUpdatingAllDrafts(false);
+      setIsUpdatingSelectedStatus(false);
     }
   };
 
@@ -490,6 +471,7 @@ export default function DataParcelPage() {
                   type="button"
                   variant={activeTab === 'active' ? 'default' : 'outline'}
                   onClick={() => setActiveTab('active')}
+                  className="w-full sm:w-auto"
                 >
                   Semasa
                 </Button>
@@ -497,52 +479,66 @@ export default function DataParcelPage() {
                   type="button"
                   variant={activeTab === 'archived' ? 'default' : 'outline'}
                   onClick={() => setActiveTab('archived')}
+                  className="w-full sm:w-auto"
                 >
                   Sejarah
                 </Button>
-                <div className="ml-auto flex flex-wrap gap-2">
+                <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:justify-end">
                   <Button
                     type="button"
-                    className="gap-2"
-                    onClick={handleExportXlsx}
-                    disabled={isExporting || entries.length === 0}
+                    className="w-full gap-2 justify-start sm:w-auto sm:justify-center"
+                    onClick={handleExportSelectedXlsx}
+                    disabled={isExporting || selectedEntries.length === 0}
                   >
                     <Download size={16} />
-                    {isExporting ? 'Mengeksport...' : `Eksport XLSX (${entries.length})`}
+                    {isExporting
+                      ? 'Mengeksport...'
+                      : `Export XLSX Dipilih (${selectedEntries.length})`}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
-                    className="gap-2"
-                    onClick={() =>
-                      handleUpdateAllDraftsStatus(activeTab === 'active' ? 'archive_all' : 'restore_all')
-                    }
-                    disabled={isUpdatingAllDrafts || entries.length === 0}
+                    className="w-full gap-2 justify-start sm:w-auto sm:justify-center"
+                    onClick={handleUpdateSelectedStatus}
+                    disabled={isUpdatingSelectedStatus || selectedEntryIds.length === 0}
                   >
                     <Archive size={16} />
-                    {isUpdatingAllDrafts
+                    {isUpdatingSelectedStatus
                       ? activeTab === 'active'
                         ? 'Mengarkibkan...'
                         : 'Memulihkan...'
                       : activeTab === 'active'
-                        ? 'Arkib Semua'
-                        : 'Pulih Semua'}
+                        ? `Arkibkan Dipilih (${selectedEntryIds.length})`
+                        : `Pulihkan Dipilih (${selectedEntryIds.length})`}
                   </Button>
                 </div>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-xl border overflow-hidden">
-              <Table>
+            <div className="rounded-xl border overflow-x-auto">
+              <Table className="min-w-[760px]">
                 <TableHeader>
                   <TableRow className="bg-muted/30">
+                    <TableHead className="w-12 text-center">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedEntryIds(entries.map((entry) => entry.id));
+                            return;
+                          }
+                          setSelectedEntryIds([]);
+                        }}
+                        aria-label="Pilih semua entri"
+                        disabled={entries.length === 0}
+                      />
+                    </TableHead>
                     <TableHead>Nama Pelanggan</TableHead>
                     <TableHead>KV</TableHead>
                     <TableHead>No. Telefon</TableHead>
                     <TableHead>No Order</TableHead>
                     <TableHead className="text-right">Bilangan Parcel</TableHead>
-                    <TableHead className="text-right">Tindakan</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -559,6 +555,21 @@ export default function DataParcelPage() {
                   ) : (
                     entries.map((item) => (
                       <TableRow key={item.id}>
+                        <TableCell className="text-center">
+                          <Checkbox
+                            checked={selectedEntryIds.includes(item.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedEntryIds((prev) => {
+                                if (checked) {
+                                  if (prev.includes(item.id)) return prev;
+                                  return [...prev, item.id];
+                                }
+                                return prev.filter((id) => id !== item.id);
+                              });
+                            }}
+                            aria-label={`Pilih entri ${item.namaCustomer}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{item.namaCustomer}</TableCell>
                         <TableCell className="font-medium">{item.kv}</TableCell>
                         <TableCell>{item.noPhone}</TableCell>
@@ -581,24 +592,6 @@ export default function DataParcelPage() {
                             disabled={activeTab !== 'active' || isUpdatingParcelId === item.id}
                             className="ml-auto h-8 w-24 text-right"
                           />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() =>
-                              handleUpdateEntryStatus(item.id, activeTab === 'active' ? 'archive' : 'restore')
-                            }
-                            disabled={isUpdatingDraftId === item.id}
-                          >
-                            {isUpdatingDraftId === item.id
-                              ? activeTab === 'active'
-                                ? 'Arkib...'
-                                : 'Pulih...'
-                              : activeTab === 'active'
-                                ? 'Arkib'
-                                : 'Pulih'}
-                          </Button>
                         </TableCell>
                       </TableRow>
                     ))

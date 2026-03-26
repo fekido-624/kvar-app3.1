@@ -346,7 +346,7 @@ export default function CustomersPage() {
         </Button>
       </div>
 
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden hidden md:block">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30">
@@ -432,6 +432,66 @@ export default function CustomersPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex flex-col gap-3 md:hidden">
+        {filteredCustomers.length === 0 ? (
+          <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground">
+            Tiada pelanggan dijumpai.
+          </div>
+        ) : (
+          paginatedCustomers.map((customer) => (
+            <div key={customer.id} className="rounded-lg border bg-card p-3 shadow-sm">
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  checked={selectedCustomerIds.includes(customer.id)}
+                  onCheckedChange={(checked) => handleToggleCustomer(customer.id, checked === true)}
+                  aria-label={`Select customer ${customer.name}`}
+                  className="mt-0.5"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-bold leading-tight text-foreground truncate">{customer.name}</h3>
+                      <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{customer.address}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                    <span className="rounded bg-muted px-2 py-1 font-medium">
+                      {customer.postcode}
+                    </span>
+                    <span className="truncate font-medium">{customer.phone}</span>
+                    <span className="font-mono font-semibold bg-secondary px-2 py-1 rounded">
+                        {customer.kodKV}
+                    </span>
+                  </div>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Tindakan</DropdownMenuLabel>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/customers/edit/${customer.id}?${buildCustomersReturnQuery()}`} className="cursor-pointer">
+                        <Edit className="mr-2 h-4 w-4" /> Edit Pelanggan
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:bg-destructive/10 cursor-pointer"
+                      onClick={() => setCustomerToDelete(customer.id)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Padam Pelanggan
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="mt-4 flex items-center justify-between">

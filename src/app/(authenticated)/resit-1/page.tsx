@@ -8,6 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -38,6 +46,8 @@ type CustomerLite = {
   id: string;
   name: string;
   kodKV: string;
+  address?: string;
+  postcode?: string;
   phone?: string;
 };
 
@@ -89,6 +99,8 @@ export default function ResitSatuPage() {
 
   const [namaPenerima, setNamaPenerima] = useState('');
   const [noPhoneCustomer, setNoPhoneCustomer] = useState('');
+  const [alamatCustomer, setAlamatCustomer] = useState('');
+  const [poskodCustomer, setPoskodCustomer] = useState('');
   const [namaKolejVokasional, setNamaKolejVokasional] = useState('');
   const [selectedModuleId, setSelectedModuleId] = useState('');
   const [perkara, setPerkara] = useState('');
@@ -101,13 +113,15 @@ export default function ResitSatuPage() {
   const [modules, setModules] = useState<ModuleOption[]>([]);
   const [drafts, setDrafts] = useState<ResitDraftRow[]>([]);
 
-  const [resetNoResitStart, setResetNoResitStart] = useState('1');
-  const [resetNoSebutHargaStart, setResetNoSebutHargaStart] = useState('1');
+  const [isResetResitDialogOpen, setIsResetResitDialogOpen] = useState(false);
+  const [isResetSebatHargaDialogOpen, setIsResetSebatHargaDialogOpen] = useState(false);
+  const [resetResitNumber, setResetResitNumber] = useState('1');
+  const [resetSebatHargaNumber, setResetSebatHargaNumber] = useState('1');
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isResettingResit, setIsResettingResit] = useState(false);
-  const [isResettingSebutHarga, setIsResettingSebutHarga] = useState(false);
+  const [isResettingSebatHarga, setIsResettingSebatHarga] = useState(false);
   const [isExportingZip, setIsExportingZip] = useState(false);
   const [isDeletingDraftId, setIsDeletingDraftId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
@@ -242,6 +256,8 @@ export default function ResitSatuPage() {
   const resetForm = () => {
     setNamaPenerima('');
     setNoPhoneCustomer('');
+    setAlamatCustomer('');
+    setPoskodCustomer('');
     setNamaKolejVokasional('');
     setSelectedModuleId('');
     setPerkara('');
@@ -338,8 +354,8 @@ export default function ResitSatuPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           namaCustomer: namaPenerima.trim(),
-          alamat: '',
-          poskod: '',
+          alamat: alamatCustomer.trim(),
+          poskod: poskodCustomer.trim(),
           kv: namaKolejVokasional.trim(),
           noPhone,
           noOrder,
@@ -397,8 +413,8 @@ export default function ResitSatuPage() {
     }
   };
 
-  const handleResetCounter = async (resetType: 'resit' | 'sebat_harga', startNoRaw: string) => {
-    const startNo = Number(startNoRaw);
+  const handleResetResit = async () => {
+    const startNo = Number(resetResitNumber);
     if (!Number.isInteger(startNo) || startNo < 1) {
       toast({
         title: 'No Mula Tidak Sah',
@@ -408,28 +424,25 @@ export default function ResitSatuPage() {
       return;
     }
 
-    if (resetType === 'resit') {
-      setIsResettingResit(true);
-    } else {
-      setIsResettingSebutHarga(true);
-    }
-
+    setIsResettingResit(true);
     try {
       const response = await fetch('/api/receipts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ startNo, resetType }),
+        body: JSON.stringify({ startNo, resetType: 'resit' }),
       });
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error ?? 'Gagal reset nombor siri.');
+        throw new Error(data.error ?? 'Gagal reset No Resit.');
       }
 
       await refreshReceipts();
+      setIsResetResitDialogOpen(false);
+      setResetResitNumber('1');
       toast({
-        title: 'Reset Berjaya',
-        description: resetType === 'resit' ? 'No siri resit berjaya direset.' : 'No siri sebut harga berjaya direset.',
+        title: 'Reset No Resit Berjaya',
+        description: `No Resit bermula dari ${String(startNo).padStart(4, '0')}`,
       });
     } catch (error) {
       toast({
@@ -438,11 +451,49 @@ export default function ResitSatuPage() {
         variant: 'destructive',
       });
     } finally {
-      if (resetType === 'resit') {
-        setIsResettingResit(false);
-      } else {
-        setIsResettingSebutHarga(false);
+      setIsResettingResit(false);
+    }
+  };
+
+  const handleResetSebatHarga = async () => {
+    const startNo = Number(resetSebatHargaNumber);
+    if (!Number.isInteger(startNo) || startNo < 1) {
+      toast({
+        title: 'No Mula Tidak Sah',
+        description: 'Sila masukkan nombor mula yang valid (>=1).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsResettingSebatHarga(true);
+    try {
+      const response = await fetch('/api/receipts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startNo, resetType: 'sebat_harga' }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Gagal reset No Sebut Harga.');
       }
+
+      await refreshReceipts();
+      setIsResetSebatHargaDialogOpen(false);
+      setResetSebatHargaNumber('1');
+      toast({
+        title: 'Reset No Sebut Harga Berjaya',
+        description: `No Sebut Harga bermula dari ${String(startNo).padStart(3, '0')}`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Reset Gagal',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsResettingSebatHarga(false);
     }
   };
 
@@ -456,10 +507,13 @@ export default function ResitSatuPage() {
       return;
     }
 
-    if (visibleDrafts.length === 0) {
+    const visibleDraftIdSet = new Set(visibleDrafts.map((draft) => draft.id));
+    const selectedVisibleIds = selectedIds.filter((id) => visibleDraftIdSet.has(id));
+
+    if (selectedVisibleIds.length === 0) {
       toast({
-        title: 'Tiada Draf',
-        description: 'Sila simpan sekurang-kurangnya satu draf untuk eksport.',
+        title: 'Tiada Pilihan',
+        description: 'Tick sekurang-kurangnya satu draf untuk eksport ZIP.',
         variant: 'destructive',
       });
       return;
@@ -467,7 +521,12 @@ export default function ResitSatuPage() {
 
     setIsExportingZip(true);
     try {
-      const response = await fetch('/api/receipts/export-pdf?status=active&source=all', { method: 'GET' });
+      const params = new URLSearchParams({
+        status: 'active',
+        source: 'all',
+        ids: selectedVisibleIds.join(','),
+      });
+      const response = await fetch(`/api/receipts/export-pdf?${params.toString()}`, { method: 'GET' });
       const blob = await response.blob();
 
       if (!response.ok) {
@@ -490,7 +549,7 @@ export default function ResitSatuPage() {
 
       toast({
         title: 'Eksport Berjaya',
-        description: 'Fail ZIP invoice berjaya dijana.',
+        description: `Fail ZIP invoice berjaya dijana untuk ${selectedVisibleIds.length} draf dipilih.`,
       });
     } catch (error) {
       toast({
@@ -713,50 +772,128 @@ export default function ResitSatuPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>No Siri Resit</Label>
-              <Input value={noResit} disabled />
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  value={resetNoResitStart}
-                  onChange={(e) => setResetNoResitStart(e.target.value)}
-                  placeholder="Start no"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isResettingResit}
-                  onClick={() => handleResetCounter('resit', resetNoResitStart)}
-                >
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                  Reset
-                </Button>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Input value={noResit} disabled className="mb-2" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsResetResitDialogOpen(true)}
+                    disabled={isResettingResit}
+                    className="w-full"
+                  >
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    Reset No Resit
+                  </Button>
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
               <Label>No Siri Sebut Harga</Label>
-              <Input value={noSeriSebatHarga} disabled />
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  min={1}
-                  value={resetNoSebutHargaStart}
-                  onChange={(e) => setResetNoSebutHargaStart(e.target.value)}
-                  placeholder="Start no"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isResettingSebutHarga}
-                  onClick={() => handleResetCounter('sebat_harga', resetNoSebutHargaStart)}
-                >
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                  Reset
-                </Button>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Input value={noSeriSebatHarga} disabled className="mb-2" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsResetSebatHargaDialogOpen(true)}
+                    disabled={isResettingSebatHarga}
+                    className="w-full"
+                  >
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    Reset No Sebut Harga
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
+
+          <Dialog open={isResetResitDialogOpen} onOpenChange={setIsResetResitDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Reset No Siri Resit</DialogTitle>
+                <DialogDescription>
+                  Masukkan nombor mula untuk No Siri Resit (akan diformat ke 4 digit).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-resit-number">Nombor Mula</Label>
+                  <Input
+                    id="reset-resit-number"
+                    type="number"
+                    min="1"
+                    value={resetResitNumber}
+                    onChange={(e) => setResetResitNumber(e.target.value)}
+                    placeholder="Contoh: 1 atau 2001"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Contoh: 1 → 0001, 2001 → 2001
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsResetResitDialogOpen(false)}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleResetResit}
+                  disabled={isResettingResit}
+                >
+                  {isResettingResit ? 'Melakukan Reset...' : 'Reset'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isResetSebatHargaDialogOpen} onOpenChange={setIsResetSebatHargaDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Reset No Siri Sebut Harga</DialogTitle>
+                <DialogDescription>
+                  Masukkan nombor mula untuk No Siri Sebut Harga (akan diformat ke 3 digit).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-sebat-harga-number">Nombor Mula</Label>
+                  <Input
+                    id="reset-sebat-harga-number"
+                    type="number"
+                    min="1"
+                    value={resetSebatHargaNumber}
+                    onChange={(e) => setResetSebatHargaNumber(e.target.value)}
+                    placeholder="Contoh: 1 atau 201"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Contoh: 1 → 001, 201 → 201
+                  </p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsResetSebatHargaDialogOpen(false)}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleResetSebatHarga}
+                  disabled={isResettingSebatHarga}
+                >
+                  {isResettingSebatHarga ? 'Melakukan Reset...' : 'Reset'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -766,10 +903,14 @@ export default function ResitSatuPage() {
                 onValueChange={(value) => {
                   setNamaPenerima(value);
                   setNoPhoneCustomer('');
+                  setAlamatCustomer('');
+                  setPoskodCustomer('');
                 }}
                 onCustomerSelect={(customer: CustomerLite) => {
                   setNamaPenerima(customer.name);
                   setNoPhoneCustomer(String(customer.phone ?? '').trim());
+                  setAlamatCustomer(String(customer.address ?? '').trim());
+                  setPoskodCustomer(String(customer.postcode ?? '').trim());
                   if (!namaKolejVokasional.trim()) {
                     setNamaKolejVokasional(customer.kodKV ?? '');
                   }
@@ -863,11 +1004,11 @@ export default function ResitSatuPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={handleSaveDraft} disabled={isSaving}>
+            <Button type="button" onClick={handleSaveDraft} disabled={isSaving} className="w-full sm:w-auto">
               <Save className="mr-2 h-4 w-4" />
               {isSaving ? 'Menyimpan...' : 'Simpan ke Senarai'}
             </Button>
-            <Button type="button" variant="outline" onClick={resetForm}>
+            <Button type="button" variant="outline" onClick={resetForm} className="w-full sm:w-auto">
               Reset Borang
             </Button>
           </div>
@@ -883,7 +1024,7 @@ export default function ResitSatuPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex gap-2">
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto">
               <Button
                 type="button"
                 variant={activeTab === 'active' ? 'default' : 'outline'}
@@ -892,6 +1033,7 @@ export default function ResitSatuPage() {
                   setSearchRekodLama('');
                   setSelectedIds([]);
                 }}
+                className="w-full sm:w-auto"
               >
                 Draft
               </Button>
@@ -902,12 +1044,13 @@ export default function ResitSatuPage() {
                   setActiveTab('archived');
                   setSelectedIds([]);
                 }}
+                className="w-full sm:w-auto"
               >
                 Rekod Lama
               </Button>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
               {activeTab === 'active' ? (
                 <>
                   <Button
@@ -915,13 +1058,14 @@ export default function ResitSatuPage() {
                     variant="outline"
                     onClick={handleArchiveSelected}
                     disabled={isArchivingSelected || selectedIds.length === 0}
+                    className="w-full justify-start sm:w-auto sm:justify-center"
                   >
                     <Archive className="mr-2 h-4 w-4" />
                     {isArchivingSelected ? 'Memindah...' : 'Pindah ke Rekod Lama'}
                   </Button>
-                  <Button type="button" onClick={handleExportZip} disabled={isExportingZip || visibleDrafts.length === 0}>
+                  <Button type="button" onClick={handleExportZip} disabled={isExportingZip || selectedIds.length === 0} className="w-full justify-start sm:w-auto sm:justify-center">
                     <Download className="mr-2 h-4 w-4" />
-                    {isExportingZip ? 'Mengeksport...' : `Eksport ZIP (${visibleDrafts.length})`}
+                    {isExportingZip ? 'Mengeksport...' : `Eksport Invois (${selectedIds.length})`}
                   </Button>
                 </>
               ) : (
@@ -931,6 +1075,7 @@ export default function ResitSatuPage() {
                     variant="outline"
                     onClick={handleRestoreSelected}
                     disabled={isRestoringSelected || selectedIds.length === 0}
+                    className="w-full justify-start sm:w-auto sm:justify-center"
                   >
                     <RotateCcw className="mr-2 h-4 w-4" />
                     {isRestoringSelected ? 'Memulih...' : 'Pulihkan Pilihan'}
@@ -940,6 +1085,7 @@ export default function ResitSatuPage() {
                     variant="destructive"
                     onClick={handleDeleteSelected}
                     disabled={isDeletingSelected || selectedIds.length === 0}
+                    className="w-full justify-start sm:w-auto sm:justify-center"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     {isDeletingSelected ? 'Memadam...' : 'Padam Pilihan'}
@@ -960,14 +1106,14 @@ export default function ResitSatuPage() {
                 placeholder="Taip nama/kod KV..."
                 value={searchRekodLama}
                 onChange={(e) => setSearchRekodLama(e.target.value)}
-                className="max-w-sm"
+                className="w-full sm:max-w-sm"
               />
               {searchRekodLama && (
                 <Button type="button" variant="ghost" size="sm" onClick={() => setSearchRekodLama('')}>
                   Reset
                 </Button>
               )}
-              <span className="ml-auto text-sm text-muted-foreground">{visibleDrafts.length} rekod dijumpai</span>
+              <span className="text-sm text-muted-foreground sm:ml-auto">{visibleDrafts.length} rekod dijumpai</span>
             </div>
           )}
 
@@ -976,7 +1122,7 @@ export default function ResitSatuPage() {
           </div>
 
           <div className="border rounded-md overflow-x-auto">
-            <Table>
+            <Table className="min-w-[760px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[44px]">

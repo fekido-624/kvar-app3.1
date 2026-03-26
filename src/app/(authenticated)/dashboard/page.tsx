@@ -18,6 +18,11 @@ type CustomerSummaryResponse = {
   customers?: Array<{ id: string }>;
 };
 
+type DraftTempahanResponse = {
+  drafts?: Array<{ id: string }>;
+  status?: string;
+};
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [jumlahPelanggan, setJumlahPelanggan] = useState(0);
@@ -28,8 +33,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const loadDashboardData = async () => {
-      const [customerResponse, receiptResponse, rekodResponse] = await Promise.all([
+      const [customerResponse, tempahanResponse, receiptResponse, rekodResponse] = await Promise.all([
         fetch('/api/customers', { cache: 'no-store' }),
+        fetch('/api/tempahan/drafts?status=active', { cache: 'no-store' }),
         fetch('/api/receipts', { cache: 'no-store' }),
         fetch('/api/rekod-jualan', { cache: 'no-store' }),
       ]);
@@ -39,9 +45,13 @@ export default function DashboardPage() {
         setJumlahPelanggan(customerData.customers?.length ?? 0);
       }
 
+      if (tempahanResponse.ok) {
+        const tempahanData = (await tempahanResponse.json()) as DraftTempahanResponse;
+        setJumlahDraftResit(tempahanData.drafts?.length ?? 0);
+      }
+
       if (receiptResponse.ok) {
         const receiptData = (await receiptResponse.json()) as ReceiptSummaryResponse;
-        setJumlahDraftResit(receiptData.receipts?.length ?? 0);
         setNextNoResit(receiptData.nextNoResit ?? '-');
         setNextNoSebutHarga(receiptData.nextNoSeriSebatHarga ?? '-');
       }

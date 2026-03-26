@@ -33,6 +33,7 @@ import {
 
 type TempahanDraft = {
   id: string;
+  receiptDraftId: string;
   noResit: string;
   namaPenerima: string;
   namaKolejVokasional: string;
@@ -104,6 +105,7 @@ const resolveNoOrder = (item: { noOrder: string; noResit: string }) => {
 
 const normalizeDraft = (item: Record<string, unknown>): TempahanDraft => ({
   id: String(item.id ?? ''),
+  receiptDraftId: String(item.receiptDraftId ?? ''),
   noResit: String(item.noResit ?? ''),
   namaPenerima: String(item.namaPenerima ?? ''),
   namaKolejVokasional: String(item.namaKolejVokasional ?? ''),
@@ -140,10 +142,10 @@ export default function TempahanPage() {
   const [isSavingTajukOption, setIsSavingTajukOption] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [isArchivingAll, setIsArchivingAll] = useState(false);
   const [isRestoringSelected, setIsRestoringSelected] = useState(false);
   const [isArchivingSelected, setIsArchivingSelected] = useState(false);
+  const [isDeletingSelectedActive, setIsDeletingSelectedActive] = useState(false);
   const [isDeletingSelectedArchived, setIsDeletingSelectedArchived] = useState(false);
   const [selectedActiveIds, setSelectedActiveIds] = useState<string[]>([]);
   const [selectedArchivedIds, setSelectedArchivedIds] = useState<string[]>([]);
@@ -189,6 +191,16 @@ export default function TempahanPage() {
       return true;
     });
   }, [archiveDateFrom, archiveDateTo, searchKV, draftStatusView, drafts]);
+
+  const selectedDraftIdsByView = draftStatusView === 'active' ? selectedActiveIds : selectedArchivedIds;
+  const selectedDraftsByView = useMemo(
+    () => filteredDrafts.filter((item) => selectedDraftIdsByView.includes(item.id)),
+    [filteredDrafts, selectedDraftIdsByView]
+  );
+  const selectedReceiptDraftIdsByView = useMemo(
+    () => Array.from(new Set(selectedDraftsByView.map((item) => item.receiptDraftId).filter(Boolean))),
+    [selectedDraftsByView]
+  );
 
   const loadDrafts = async () => {
     setIsLoading(true);
@@ -639,83 +651,6 @@ export default function TempahanPage() {
     });
   };
 
-  const handleUpdateDraftStatus = async (draftId: string, action: 'archive' | 'restore') => {
-    if (isDeletingId) return;
-    setIsDeletingId(draftId);
-
-    try {
-      const response = await fetch(`/api/tempahan/drafts/${draftId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      if (!response.ok) {
-        toast({
-          title: 'Kemaskini Gagal',
-          description: 'Tidak dapat kemaskini status draf tempahan.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      await loadDrafts();
-      toast({
-        title: action === 'archive' ? 'Tempahan Diarkibkan' : 'Tempahan Dipulihkan',
-        description:
-          action === 'archive'
-            ? 'Draf tempahan dipindahkan ke arkib.'
-            : 'Draf tempahan dipulihkan ke senarai aktif.',
-      });
-    } catch {
-      toast({
-        title: 'Kemaskini Gagal',
-        description: 'Ralat rangkaian semasa kemaskini status draf tempahan.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeletingId(null);
-    }
-  };
-
-  const handleDeleteDraft = async (draftId: string) => {
-    if (isDeletingId) return;
-
-    const confirmed = window.confirm(
-      'Padam draf tempahan ini? Data resit dan data parcel yang berkaitan juga akan dipadam.'
-    );
-    if (!confirmed) return;
-
-    setIsDeletingId(draftId);
-    try {
-      const response = await fetch(`/api/tempahan/drafts/${draftId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        toast({
-          title: 'Padam Draf Gagal',
-          description: (data as { error?: string }).error ?? 'Tidak dapat padam draf tempahan.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      await loadDrafts();
-      toast({
-        title: 'Draf Dipadam',
-        description: 'Draf tempahan berjaya dipadam.',
-      });
-    } catch {
-      toast({
-        title: 'Padam Draf Gagal',
-        description: 'Ralat rangkaian semasa memadam draf tempahan.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeletingId(null);
-    }
-  };
-
   const handleArchiveOrRestoreAll = async () => {
     if (isArchivingAll || filteredDrafts.length === 0) return;
 
@@ -931,6 +866,53 @@ export default function TempahanPage() {
     }
   };
 
+  const handleDeleteSelectedActive = async () => {
+    if (selectedActiveIds.length === 0 || isDeletingSelectedActive) return;
+
+    const confirmed = window.confirm(
+      `Padam ${selectedActiveIds.length} draf semasa dipilih? Data resit dan data parcel berkaitan juga akan dipadam.`
+    );
+    if (!confirmed) return;
+
+    setIsDeletingSelectedActive(true);
+    try {
+      const results = await Promise.all(
+        selectedActiveIds.map(async (id) => {
+          const response = await fetch(`/api/tempahan/drafts/${id}`, {
+            method: 'DELETE',
+          });
+          return { id, ok: response.ok };
+        })
+      );
+
+      const failedCount = results.filter((item) => !item.ok).length;
+      await loadDrafts();
+      setSelectedActiveIds([]);
+
+      if (failedCount > 0) {
+        toast({
+          title: 'Delete Sebahagian',
+          description: `${results.length - failedCount} berjaya, ${failedCount} gagal dipadam.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Delete Berjaya',
+        description: `${results.length} draf semasa berjaya dipadam.`,
+      });
+    } catch {
+      toast({
+        title: 'Delete Draf Gagal',
+        description: 'Ralat rangkaian semasa memadam draf semasa dipilih.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingSelectedActive(false);
+    }
+  };
+
   const handleGenerateInvoiceZip = async () => {
     if (drafts.length === 0 || isGenerating) return;
 
@@ -948,10 +930,12 @@ export default function TempahanPage() {
       }
 
       const blob = await response.blob();
+      const contentDisposition = response.headers.get('content-disposition') ?? '';
+      const matchedName = contentDisposition.match(/filename="?([^\"]+)"?/i)?.[1];
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `invoice-pdf-export-${Date.now()}.zip`;
+      link.download = matchedName ?? `invoice-tempahan-${Date.now()}.zip`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -965,6 +949,55 @@ export default function TempahanPage() {
       toast({
         title: 'Jana Invois Gagal',
         description: 'Ralat rangkaian semasa jana PDF invois.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateInvoiceZipSelected = async () => {
+    if (selectedReceiptDraftIdsByView.length === 0 || isGenerating) return;
+
+    setIsGenerating(true);
+    try {
+      const params = new URLSearchParams({
+        status: draftStatusView,
+        source: 'tempahan',
+        ids: selectedReceiptDraftIdsByView.join(','),
+      });
+
+      const response = await fetch(`/api/receipts/export-pdf?${params.toString()}`, { method: 'GET' });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        toast({
+          title: 'Jana Invois Dipilih Gagal',
+          description: data.error ?? 'Tidak dapat jana PDF invois untuk rekod dipilih.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('content-disposition') ?? '';
+      const matchedName = contentDisposition.match(/filename="?([^\"]+)"?/i)?.[1];
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = matchedName ?? `invoice-tempahan-dipilih-${Date.now()}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Invois Dipilih Dijana',
+        description: `ZIP PDF untuk ${selectedDraftIdsByView.length} rekod dipilih berjaya dimuat turun.`,
+      });
+    } catch {
+      toast({
+        title: 'Jana Invois Dipilih Gagal',
+        description: 'Ralat rangkaian semasa jana PDF invois dipilih.',
         variant: 'destructive',
       });
     } finally {
@@ -1042,6 +1075,83 @@ export default function TempahanPage() {
       toast({
         title: 'Jana XLSX Gagal',
         description: 'Ralat rangkaian semasa jana fail data parcel.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateParcelXlsxSelected = async () => {
+    if (selectedDraftsByView.length === 0 || isGenerating) return;
+
+    const parcelEligibleDrafts = selectedDraftsByView.filter((item) => item.hargaPostage > 0);
+    if (parcelEligibleDrafts.length === 0) {
+      toast({
+        title: 'Tiada Data Parcel Dipilih',
+        description: 'Rekod dipilih tidak mempunyai harga postage > 0 untuk eksport parcel.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const missingPhone = parcelEligibleDrafts.find((item) => !item.noPhone.trim());
+    if (missingPhone) {
+      toast({
+        title: 'No Phone Diperlukan',
+        description: 'Ada rekod dipilih yang tiada no phone untuk eksport parcel.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const payload = {
+        entries: parcelEligibleDrafts.map((item) => ({
+          namaCustomer: item.namaPenerima,
+          alamat: item.alamat,
+          poskod: item.poskod,
+          noPhone: item.noPhone,
+          noOrder: resolveNoOrder(item),
+          bilanganParcel: item.bilanganParcel,
+        })),
+      };
+
+      const response = await fetch('/api/data-parcel/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        toast({
+          title: 'Jana XLSX Dipilih Gagal',
+          description: data.error ?? 'Tidak dapat jana fail XLSX parcel untuk rekod dipilih.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `data-parcel-dipilih-${Date.now()}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'XLSX Dipilih Dijana',
+        description: 'Fail data parcel untuk rekod dipilih berjaya dimuat turun.',
+      });
+    } catch {
+      toast({
+        title: 'Jana XLSX Dipilih Gagal',
+        description: 'Ralat rangkaian semasa jana fail parcel dipilih.',
         variant: 'destructive',
       });
     } finally {
@@ -1236,6 +1346,193 @@ export default function TempahanPage() {
     }
   };
 
+  const handleGenerateAddressPdfSelected = async () => {
+    if (selectedDraftsByView.length === 0 || isGenerating) return;
+
+    const mmToPt = (mm: number) => (mm * 72) / 25.4;
+    const pageWidth = mmToPt(105);
+    const pageHeight = mmToPt(148);
+    const bilColWidth = mmToPt(14);
+
+    const normalizeLine = (line: string) => line.trim().replace(/^,+\s*/, '');
+
+    const wrapText = (
+      text: string,
+      fontSize: number,
+      maxWidth: number,
+      font: Awaited<ReturnType<PDFDocument['embedFont']>>
+    ): string[] => {
+      const words = text.split(/\s+/).filter(Boolean);
+      const lines: string[] = [];
+      let currentLine = '';
+
+      for (const word of words) {
+        const next = currentLine ? `${currentLine} ${word}` : word;
+        const width = font.widthOfTextAtSize(next, fontSize);
+
+        if (currentLine && width > maxWidth) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = next;
+        }
+      }
+
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+
+      return lines.length > 0 ? lines : [text];
+    };
+
+    setIsGenerating(true);
+    try {
+      const rows = selectedDraftsByView.flatMap((item) => {
+        const copies = Math.max(1, Number(item.bilanganAlamat || 1));
+        const alamatLines = [
+          ...item.alamat
+            .split(/\r?\n/)
+            .map((line) => normalizeLine(line))
+            .filter(Boolean),
+          normalizeLine(item.poskod),
+          normalizeLine(item.noPhone),
+        ].filter(Boolean);
+
+        return Array.from({ length: copies }, (_, idx) => ({
+          id: `${item.id}-${idx}`,
+          bil: resolveNoOrder(item),
+          nama: item.namaPenerima,
+          alamatLines,
+        }));
+      });
+
+      if (rows.length === 0) {
+        toast({
+          title: 'Tiada Data Alamat Dipilih',
+          description: 'Rekod dipilih tiada data untuk jana PDF alamat.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const pdfDoc = await PDFDocument.create();
+      const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      const black = rgb(0, 0, 0);
+
+      const chunkSize = 3;
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        const pageRows = rows.slice(i, i + chunkSize);
+        const page = pdfDoc.addPage([pageWidth, pageHeight]);
+        const fixedRowsPerPage = 3;
+        const rowHeight = pageHeight / fixedRowsPerPage;
+
+        page.drawRectangle({
+          x: 0,
+          y: 0,
+          width: pageWidth,
+          height: pageHeight,
+          borderColor: black,
+          borderWidth: 1,
+        });
+
+        for (let rowIndex = 0; rowIndex < fixedRowsPerPage; rowIndex += 1) {
+          const row = pageRows[rowIndex];
+          const yTop = pageHeight - rowIndex * rowHeight;
+          const yBottom = yTop - rowHeight;
+
+          if (rowIndex < fixedRowsPerPage - 1) {
+            page.drawLine({
+              start: { x: 0, y: yBottom },
+              end: { x: pageWidth, y: yBottom },
+              color: black,
+              thickness: 1,
+            });
+          }
+
+          page.drawLine({
+            start: { x: bilColWidth, y: yBottom },
+            end: { x: bilColWidth, y: yTop },
+            color: black,
+            thickness: 1,
+          });
+
+          if (!row) {
+            continue;
+          }
+
+          const bilTextWidth = fontRegular.widthOfTextAtSize(row.bil, 12);
+          page.drawText(row.bil, {
+            x: (bilColWidth - bilTextWidth) / 2,
+            y: yTop - mmToPt(22),
+            size: 12,
+            font: fontRegular,
+            color: black,
+          });
+
+          const nameBandHeight = mmToPt(6);
+          const contentX = bilColWidth + mmToPt(2);
+          const nameY = yTop - nameBandHeight + mmToPt(1.8);
+
+          page.drawLine({
+            start: { x: bilColWidth, y: yTop - nameBandHeight },
+            end: { x: pageWidth, y: yTop - nameBandHeight },
+            color: black,
+            thickness: 1,
+          });
+
+          page.drawText(row.nama, {
+            x: contentX,
+            y: nameY,
+            size: 13,
+            font: fontBold,
+            color: black,
+          });
+
+          const maxAddressWidth = pageWidth - contentX - mmToPt(1);
+          let currentY = yTop - nameBandHeight - mmToPt(6);
+          for (const line of row.alamatLines) {
+            const wrapped = wrapText(line, 12, maxAddressWidth, fontRegular);
+            for (const wrappedLine of wrapped) {
+              page.drawText(wrappedLine, {
+                x: contentX,
+                y: currentY,
+                size: 12,
+                font: fontRegular,
+                color: black,
+              });
+              currentY -= mmToPt(4.2);
+            }
+          }
+        }
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `alamat-tempahan-dipilih-${Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'PDF Alamat Dipilih Dijana',
+        description: `PDF alamat untuk ${selectedDraftIdsByView.length} draf dipilih berjaya dijana.`,
+      });
+    } catch {
+      toast({
+        title: 'Jana PDF Alamat Dipilih Gagal',
+        description: 'Ralat semasa jana PDF alamat dipilih.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -1243,7 +1540,7 @@ export default function TempahanPage() {
         description="."
       />
 
-      <div className="grid gap-6 xl:grid-cols-[470px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)] 2xl:grid-cols-[470px_minmax(0,1fr)]">
         <Card className="border-none shadow-sm">
           <CardHeader>
             <CardTitle>Borang Tempahan</CardTitle>
@@ -1373,8 +1670,8 @@ export default function TempahanPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
-          <Card className="border-none shadow-sm">
+        <div className="min-w-0 space-y-6">
+          <Card className="min-w-0 border-none shadow-sm">
             <CardHeader>
               <CardTitle>Draf Tempahan</CardTitle>
               <CardDescription>
@@ -1389,6 +1686,7 @@ export default function TempahanPage() {
                   type="button"
                   variant={draftStatusView === 'active' ? 'default' : 'outline'}
                   onClick={() => setDraftStatusView('active')}
+                  className="w-full sm:w-auto"
                 >
                   Semasa
                 </Button>
@@ -1396,94 +1694,128 @@ export default function TempahanPage() {
                   type="button"
                   variant={draftStatusView === 'archived' ? 'default' : 'outline'}
                   onClick={() => setDraftStatusView('archived')}
+                  className="w-full sm:w-auto"
                 >
                   Sejarah Tempahan
                 </Button>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={handleGenerateInvoiceZip} disabled={drafts.length === 0 || isGenerating}>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <Button
+                  type="button"
+                  variant={draftStatusView === 'active' ? 'default' : 'secondary'}
+                  onClick={handleGenerateInvoiceZipSelected}
+                  disabled={selectedDraftIdsByView.length === 0 || isGenerating}
+                  className="w-full justify-start"
+                >
                   <FileArchive className="mr-2 h-4 w-4" />
-                  Jana PDF Invois (ZIP)
+                  Export Invois Terpilih
                 </Button>
-                <Button type="button" variant="outline" onClick={handleGenerateAddressPdf} disabled={drafts.length === 0 || isGenerating}>
+                <Button
+                  type="button"
+                  variant={draftStatusView === 'active' ? 'default' : 'secondary'}
+                  onClick={handleGenerateAddressPdfSelected}
+                  disabled={selectedDraftIdsByView.length === 0 || isGenerating}
+                  className="w-full justify-start"
+                >
                   <Printer className="mr-2 h-4 w-4" />
-                  Jana PDF Alamat
+                  Export Alamat Terpilih
                 </Button>
-                <Button type="button" variant="outline" onClick={handleGenerateParcelXlsx} disabled={drafts.length === 0 || isGenerating}>
+                <Button
+                  type="button"
+                  variant={draftStatusView === 'active' ? 'default' : 'secondary'}
+                  onClick={handleGenerateParcelXlsxSelected}
+                  disabled={selectedDraftIdsByView.length === 0 || isGenerating}
+                  className="w-full justify-start"
+                >
                   <Download className="mr-2 h-4 w-4" />
-                  Jana XLSX Parcel
+                  Export Parcel Terpilih
                 </Button>
                 {draftStatusView === 'active' && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleArchiveSelectedActive}
-                    disabled={selectedActiveIds.length === 0 || isArchivingSelected}
-                  >
-                    <Archive className="mr-2 h-4 w-4" />
-                    {isArchivingSelected ? 'Mengarkib...' : `Arkibkan Dipilih (${selectedActiveIds.length})`}
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleArchiveSelectedActive}
+                      disabled={selectedActiveIds.length === 0 || isArchivingSelected || isDeletingSelectedActive}
+                      className="w-full justify-start"
+                    >
+                      <Archive className="mr-2 h-4 w-4" />
+                      {isArchivingSelected ? 'Mengarkib...' : `Arkibkan Dipilih (${selectedActiveIds.length})`}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={handleDeleteSelectedActive}
+                      disabled={selectedActiveIds.length === 0 || isDeletingSelectedActive || isArchivingSelected}
+                      className="w-full justify-start"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {isDeletingSelectedActive ? 'Memadam...' : `Delete Dipilih (${selectedActiveIds.length})`}
+                    </Button>
+                  </>
                 )}
               </div>
 
               {draftStatusView === 'archived' && (
-                <div className="grid gap-3 rounded-md border border-border/70 p-3 md:grid-cols-[1fr_1fr_auto]">
-                  <div className="space-y-1">
-                    <Label htmlFor="searchKV">Cari KV</Label>
-                    <Input
-                      id="searchKV"
-                      type="text"
-                      placeholder="Taip nama/kod KV..."
-                      value={searchKV}
-                      onChange={(e) => setSearchKV(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="archiveDateFrom">Tarikh Dari</Label>
-                    <Input
-                      id="archiveDateFrom"
-                      type="date"
-                      value={archiveDateFrom}
-                      onChange={(e) => setArchiveDateFrom(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="archiveDateTo">Tarikh Hingga</Label>
-                    <Input
-                      id="archiveDateTo"
-                      type="date"
-                      value={archiveDateTo}
-                      onChange={(e) => setArchiveDateTo(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleRestoreSelectedArchived}
-                        disabled={selectedArchivedIds.length === 0 || isRestoringSelected || isDeletingSelectedArchived}
-                      >
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        {isRestoringSelected ? 'Memulihkan...' : `Pulihkan Dipilih (${selectedArchivedIds.length})`}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        onClick={handleDeleteSelectedArchived}
-                        disabled={selectedArchivedIds.length === 0 || isDeletingSelectedArchived || isRestoringSelected}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        {isDeletingSelectedArchived ? 'Memadam...' : `Delete Dipilih (${selectedArchivedIds.length})`}
-                      </Button>
+                <div className="space-y-3 rounded-md border border-border/70 p-3">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="searchKV">Cari KV</Label>
+                      <Input
+                        id="searchKV"
+                        type="text"
+                        placeholder="Taip nama/kod KV..."
+                        value={searchKV}
+                        onChange={(e) => setSearchKV(e.target.value)}
+                      />
                     </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="archiveDateFrom">Tarikh Dari</Label>
+                      <Input
+                        id="archiveDateFrom"
+                        type="date"
+                        value={archiveDateFrom}
+                        onChange={(e) => setArchiveDateFrom(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="archiveDateTo">Tarikh Hingga</Label>
+                      <Input
+                        id="archiveDateTo"
+                        type="date"
+                        value={archiveDateTo}
+                        onChange={(e) => setArchiveDateTo(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleRestoreSelectedArchived}
+                      disabled={selectedArchivedIds.length === 0 || isRestoringSelected || isDeletingSelectedArchived}
+                      className="w-full sm:w-auto justify-start"
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      {isRestoringSelected ? 'Memulihkan...' : `Pulihkan Dipilih (${selectedArchivedIds.length})`}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={handleDeleteSelectedArchived}
+                      disabled={selectedArchivedIds.length === 0 || isDeletingSelectedArchived || isRestoringSelected}
+                      className="w-full sm:w-auto justify-start"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {isDeletingSelectedArchived ? 'Memadam...' : `Delete Dipilih (${selectedArchivedIds.length})`}
+                    </Button>
                   </div>
                 </div>
               )}
 
-              <div className="rounded-md border">
-                <Table>
+              <div className="max-w-full rounded-md border overflow-x-auto">
+                <Table className="min-w-[760px]">
                   <TableHeader>
                     <TableRow>
                       {draftStatusView === 'archived' ? (
@@ -1509,18 +1841,17 @@ export default function TempahanPage() {
                           />
                         </TableHead>
                       )}
-                      <TableHead>No Siri</TableHead>
+                      <TableHead className="whitespace-nowrap">No Siri</TableHead>
                       <TableHead>Penerima</TableHead>
-                      <TableHead>Bil. Alamat</TableHead>
-                      <TableHead>Bil. Parcel</TableHead>
-                      <TableHead className="text-right">Jumlah</TableHead>
-                      <TableHead className="text-right">Tindakan</TableHead>
+                      <TableHead className="w-[92px] text-center whitespace-nowrap">Bil. Alamat</TableHead>
+                      <TableHead className="w-[92px] text-center whitespace-nowrap">Bil. Parcel</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Jumlah</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredDrafts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground">
                           Belum ada draf tempahan.
                         </TableCell>
                       </TableRow>
@@ -1547,37 +1878,12 @@ export default function TempahanPage() {
                               />
                             </TableCell>
                           )}
-                          <TableCell className="font-medium">{item.noResit}</TableCell>
+                          <TableCell className="font-medium whitespace-nowrap">{item.noResit}</TableCell>
                           <TableCell>{item.namaPenerima}</TableCell>
-                          <TableCell>{item.bilanganAlamat}</TableCell>
-                          <TableCell>{item.bilanganParcel}</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-center">{item.bilanganAlamat}</TableCell>
+                          <TableCell className="text-center">{item.bilanganParcel}</TableCell>
+                          <TableCell className="text-right whitespace-nowrap">
                             {toCurrency(item.kuantiti * item.hargaSeunit + item.hargaPostage)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              {draftStatusView === 'archived' && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  onClick={() => handleUpdateDraftStatus(item.id, 'restore')}
-                                  disabled={isDeletingId === item.id}
-                                  title="Pulihkan draf"
-                                >
-                                  <RotateCcw className="h-4 w-4" />
-                                </Button>
-                              )}
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                className="text-destructive"
-                                onClick={() => handleDeleteDraft(item.id)}
-                                disabled={isDeletingId === item.id}
-                                title="Padam draf"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
                           </TableCell>
                         </TableRow>
                       ))

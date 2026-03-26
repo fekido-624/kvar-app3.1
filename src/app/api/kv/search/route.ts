@@ -2,18 +2,14 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireCurrentUser } from '@/lib/auth';
 
-const scoreKV = (keyword: string, item: { name: string; kodKV: string }) => {
+const scoreKV = (keyword: string, item: { kodKV: string }) => {
   const q = keyword.toLowerCase();
-  const name = item.name.toLowerCase();
   const kod = item.kodKV.toLowerCase();
 
   if (kod === q) return 0;
   if (kod.startsWith(q)) return 1;
-  if (name === q) return 2;
-  if (name.startsWith(q)) return 3;
-  if (kod.includes(q)) return 4;
-  if (name.includes(q)) return 5;
-  return 6;
+  if (kod.includes(q)) return 2;
+  return 3;
 };
 
 export async function GET(request: Request) {
@@ -33,18 +29,9 @@ export async function GET(request: Request) {
     const keyword = q.trim();
     const kvList = await prisma.customer.findMany({
       where: {
-        OR: [
-          {
-            kodKV: {
-              contains: keyword,
-            },
-          },
-          {
-            name: {
-              contains: keyword,
-            },
-          },
-        ],
+        kodKV: {
+          contains: keyword,
+        },
       },
       select: {
         id: true,
