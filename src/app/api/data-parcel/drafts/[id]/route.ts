@@ -32,6 +32,20 @@ const ensureDataParcelDraftTable = async () => {
     )
   `);
 
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "TempahanDraft" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "receiptDraftId" TEXT NOT NULL,
+      "dataParcelDraftId" TEXT NOT NULL,
+      "bilanganAlamat" INTEGER NOT NULL,
+      "status" TEXT NOT NULL DEFAULT 'active',
+      "archivedAt" DATETIME,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE("receiptDraftId")
+    )
+  `);
+
   const columns = (await prisma.$queryRawUnsafe(`PRAGMA table_info("DataParcelDraft")`)) as Array<{ name: string }>;
   const hasStatus = columns.some((column) => column.name === 'status');
   const hasArchivedAt = columns.some((column) => column.name === 'archivedAt');
@@ -118,6 +132,36 @@ export async function DELETE(_: Request, { params }: Params) {
   const { id } = await params;
 
   try {
+    const links = (await prisma.$queryRawUnsafe(
+      `
+      SELECT "id", "receiptDraftId"
+      FROM "TempahanDraft"
+      WHERE "dataParcelDraftId" = ?
+      `,
+      id
+    )) as Array<{ id: string; receiptDraftId: string }>;
+
+    const receiptIds = links
+      .map((item) => item.receiptDraftId)
+      .filter((value): value is string => Boolean(value));
+
+    if (links.length > 0) {
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM "TempahanDraft" WHERE "dataParcelDraftId" = ?`,
+        id
+      );
+    }
+
+    if (receiptIds.length > 0) {
+      await prisma.receiptDraft.deleteMany({
+        where: {
+          id: {
+            in: receiptIds,
+          },
+        },
+      });
+    }
+
     await prisma.$executeRawUnsafe(
       `DELETE FROM "DataParcelDraft" WHERE "id" = ?`,
       id

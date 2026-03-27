@@ -6,8 +6,11 @@ import { requireCurrentUser } from '@/lib/auth';
 
 const CreateTempahanDraftSchema = z.object({
   receiptDraftId: z.string().min(1),
-  dataParcelDraftId: z.string().min(1),
+  dataParcelDraftId: z.string().optional().default(''),
   bilanganAlamat: z.number().int().min(1),
+  alamat: z.string().optional().default(''),
+  poskod: z.string().optional().default(''),
+  noPhone: z.string().optional().default(''),
   penerbitanId: z.string().optional(),
 });
 
@@ -39,6 +42,9 @@ const ensureSupportTables = async () => {
       "receiptDraftId" TEXT NOT NULL,
       "dataParcelDraftId" TEXT NOT NULL,
       "bilanganAlamat" INTEGER NOT NULL,
+      "alamat" TEXT NOT NULL DEFAULT '',
+      "poskod" TEXT NOT NULL DEFAULT '',
+      "noPhone" TEXT NOT NULL DEFAULT '',
       "status" TEXT NOT NULL DEFAULT 'active',
       "archivedAt" DATETIME,
       "penerbitanId" TEXT,
@@ -52,6 +58,9 @@ const ensureSupportTables = async () => {
   const hasStatus = columns.some((column) => column.name === 'status');
   const hasArchivedAt = columns.some((column) => column.name === 'archivedAt');
   const hasPenerbitanId = columns.some((column) => column.name === 'penerbitanId');
+  const hasAlamat = columns.some((column) => column.name === 'alamat');
+  const hasPoskod = columns.some((column) => column.name === 'poskod');
+  const hasNoPhone = columns.some((column) => column.name === 'noPhone');
 
   if (!hasStatus) {
     await prisma.$executeRawUnsafe(`ALTER TABLE "TempahanDraft" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'active'`);
@@ -63,6 +72,18 @@ const ensureSupportTables = async () => {
 
   if (!hasPenerbitanId) {
     await prisma.$executeRawUnsafe(`ALTER TABLE "TempahanDraft" ADD COLUMN "penerbitanId" TEXT`);
+  }
+
+  if (!hasAlamat) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "TempahanDraft" ADD COLUMN "alamat" TEXT NOT NULL DEFAULT ''`);
+  }
+
+  if (!hasPoskod) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "TempahanDraft" ADD COLUMN "poskod" TEXT NOT NULL DEFAULT ''`);
+  }
+
+  if (!hasNoPhone) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "TempahanDraft" ADD COLUMN "noPhone" TEXT NOT NULL DEFAULT ''`);
   }
 };
 
@@ -84,6 +105,9 @@ export async function GET(request: Request) {
       t."receiptDraftId",
       t."dataParcelDraftId",
       t."bilanganAlamat",
+      t."alamat" AS "tempahanAlamat",
+      t."poskod" AS "tempahanPoskod",
+      t."noPhone" AS "tempahanNoPhone",
       t."penerbitanId",
       t."status",
       t."archivedAt",
@@ -99,9 +123,9 @@ export async function GET(request: Request) {
       r."hargaPostage",
       r."tarikh",
       r."semester",
-      p."alamat",
-      p."poskod",
-      p."noPhone",
+      COALESCE(p."alamat", t."alamat") AS "alamat",
+      COALESCE(p."poskod", t."poskod") AS "poskod",
+      COALESCE(p."noPhone", t."noPhone") AS "noPhone",
       p."noOrder",
       p."bilanganParcel"
     FROM "TempahanDraft" t
@@ -143,17 +167,23 @@ export async function POST(request: Request) {
         "receiptDraftId",
         "dataParcelDraftId",
         "bilanganAlamat",
+        "alamat",
+        "poskod",
+        "noPhone",
         "penerbitanId",
         "status",
         "archivedAt",
         "createdAt",
         "updatedAt"
-      ) VALUES (?, ?, ?, ?, ?, 'active', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `,
       id,
       data.receiptDraftId,
       data.dataParcelDraftId,
       data.bilanganAlamat,
+      data.alamat,
+      data.poskod,
+      data.noPhone,
       data.penerbitanId ?? null
     );
 

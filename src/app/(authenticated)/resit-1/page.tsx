@@ -349,30 +349,34 @@ export default function ResitSatuPage() {
 
       const noOrder = getNoOrderFromNoResit(noResitCreated || noResit);
 
-      const parcelResponse = await fetch('/api/data-parcel/drafts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          namaCustomer: namaPenerima.trim(),
-          alamat: alamatCustomer.trim(),
-          poskod: poskodCustomer.trim(),
-          kv: namaKolejVokasional.trim(),
-          noPhone,
-          noOrder,
-          bilanganParcel,
-        }),
-      });
+      let parcelDraftId = '';
 
-      const parcelData = await parcelResponse.json().catch(() => ({}));
-      if (!parcelResponse.ok) {
-        await fetch(`/api/receipts/${receiptDraftId}`, { method: 'DELETE' });
-        throw new Error(parcelData.error ?? 'Gagal sync Data Parcel placeholder untuk Tempahan.');
-      }
+      if (postage > 0) {
+        const parcelResponse = await fetch('/api/data-parcel/drafts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            namaCustomer: namaPenerima.trim(),
+            alamat: alamatCustomer.trim(),
+            poskod: poskodCustomer.trim(),
+            kv: namaKolejVokasional.trim(),
+            noPhone,
+            noOrder,
+            bilanganParcel,
+          }),
+        });
 
-      const parcelDraftId = String(parcelData?.draft?.id ?? parcelData?.dataParcel?.id ?? '');
-      if (!parcelDraftId) {
-        await fetch(`/api/receipts/${receiptDraftId}`, { method: 'DELETE' });
-        throw new Error('ID Data Parcel placeholder tidak dijumpai.');
+        const parcelData = await parcelResponse.json().catch(() => ({}));
+        if (!parcelResponse.ok) {
+          await fetch(`/api/receipts/${receiptDraftId}`, { method: 'DELETE' });
+          throw new Error(parcelData.error ?? 'Gagal sync Data Parcel placeholder untuk Tempahan.');
+        }
+
+        parcelDraftId = String(parcelData?.draft?.id ?? parcelData?.dataParcel?.id ?? '');
+        if (!parcelDraftId) {
+          await fetch(`/api/receipts/${receiptDraftId}`, { method: 'DELETE' });
+          throw new Error('ID Data Parcel placeholder tidak dijumpai.');
+        }
       }
 
       const tempahanResponse = await fetch('/api/tempahan/drafts', {
@@ -382,13 +386,18 @@ export default function ResitSatuPage() {
           receiptDraftId,
           dataParcelDraftId: parcelDraftId,
           bilanganAlamat: 3,
+          alamat: alamatCustomer.trim(),
+          poskod: poskodCustomer.trim(),
+          noPhone,
           penerbitanId: selectedModuleId,
         }),
       });
 
       const tempahanData = await tempahanResponse.json().catch(() => ({}));
       if (!tempahanResponse.ok) {
-        await fetch(`/api/data-parcel/drafts/${parcelDraftId}`, { method: 'DELETE' });
+        if (parcelDraftId) {
+          await fetch(`/api/data-parcel/drafts/${parcelDraftId}`, { method: 'DELETE' });
+        }
         await fetch(`/api/receipts/${receiptDraftId}`, { method: 'DELETE' });
         throw new Error(tempahanData.error ?? 'Gagal sync draft Tempahan.');
       }

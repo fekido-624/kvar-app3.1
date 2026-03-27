@@ -395,41 +395,45 @@ export default function TempahanPage() {
         return;
       }
 
-      const parcelResponse = await fetch('/api/data-parcel/drafts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          namaCustomer: form.namaPenerima.trim(),
-          alamat: form.alamat.trim(),
-          poskod: form.poskod.trim(),
-          kv: form.namaKolejVokasional.trim(),
-          noPhone: form.noPhone.trim(),
-          noOrder,
-          bilanganParcel,
-        }),
-      });
+      let parcelDraftId = '';
 
-      if (!parcelResponse.ok) {
-        await fetch(`/api/receipts/${receiptDraftId}`, { method: 'DELETE' });
-        const data = await parcelResponse.json().catch(() => ({}));
-        toast({
-          title: 'Simpan Tempahan Gagal',
-          description: data.error ?? 'Tidak dapat simpan draf parcel untuk tempahan.',
-          variant: 'destructive',
+      if (hargaPostage > 0) {
+        const parcelResponse = await fetch('/api/data-parcel/drafts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            namaCustomer: form.namaPenerima.trim(),
+            alamat: form.alamat.trim(),
+            poskod: form.poskod.trim(),
+            kv: form.namaKolejVokasional.trim(),
+            noPhone: form.noPhone.trim(),
+            noOrder,
+            bilanganParcel,
+          }),
         });
-        return;
-      }
 
-      const parcelJson = await parcelResponse.json().catch(() => ({}));
-      const parcelDraftId = String(parcelJson?.draft?.id ?? '');
-      if (!parcelDraftId) {
-        await fetch(`/api/receipts/${receiptDraftId}`, { method: 'DELETE' });
-        toast({
-          title: 'Simpan Tempahan Gagal',
-          description: 'ID draf parcel tidak dijumpai selepas simpan.',
-          variant: 'destructive',
-        });
-        return;
+        if (!parcelResponse.ok) {
+          await fetch(`/api/receipts/${receiptDraftId}`, { method: 'DELETE' });
+          const data = await parcelResponse.json().catch(() => ({}));
+          toast({
+            title: 'Simpan Tempahan Gagal',
+            description: data.error ?? 'Tidak dapat simpan draf parcel untuk tempahan.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const parcelJson = await parcelResponse.json().catch(() => ({}));
+        parcelDraftId = String(parcelJson?.draft?.id ?? '');
+        if (!parcelDraftId) {
+          await fetch(`/api/receipts/${receiptDraftId}`, { method: 'DELETE' });
+          toast({
+            title: 'Simpan Tempahan Gagal',
+            description: 'ID draf parcel tidak dijumpai selepas simpan.',
+            variant: 'destructive',
+          });
+          return;
+        }
       }
 
       const tempahanResponse = await fetch('/api/tempahan/drafts', {
@@ -439,13 +443,18 @@ export default function TempahanPage() {
           receiptDraftId,
           dataParcelDraftId: parcelDraftId,
           bilanganAlamat,
+          alamat: form.alamat.trim(),
+          poskod: form.poskod.trim(),
+          noPhone: form.noPhone.trim(),
           penerbitanId: form.penerbitanId || undefined,
         }),
       });
 
       if (!tempahanResponse.ok) {
         await fetch(`/api/receipts/${receiptDraftId}`, { method: 'DELETE' });
-        await fetch(`/api/data-parcel/drafts/${parcelDraftId}`, { method: 'DELETE' });
+        if (parcelDraftId) {
+          await fetch(`/api/data-parcel/drafts/${parcelDraftId}`, { method: 'DELETE' });
+        }
 
         const data = await tempahanResponse.json().catch(() => ({}));
         toast({

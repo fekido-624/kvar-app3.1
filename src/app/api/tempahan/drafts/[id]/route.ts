@@ -93,6 +93,13 @@ export async function PATCH(request: Request, { params }: Params) {
         return NextResponse.json({ error: 'Draft not found.' }, { status: 404 });
       }
 
+      if (!rows[0].dataParcelDraftId) {
+        return NextResponse.json(
+          { error: 'Draft ini tiada rekod Data Parcel kerana harga penghantaran ialah 0.' },
+          { status: 400 }
+        );
+      }
+
       await prisma.$executeRawUnsafe(
         `
         UPDATE "DataParcelDraft"
@@ -178,7 +185,9 @@ export async function DELETE(_: Request, { params }: Params) {
   try {
     await prisma.$executeRawUnsafe(`DELETE FROM "TempahanDraft" WHERE "id" = ?`, id);
     await prisma.receiptDraft.deleteMany({ where: { id: link.receiptDraftId } });
-    await prisma.$executeRawUnsafe(`DELETE FROM "DataParcelDraft" WHERE "id" = ?`, link.dataParcelDraftId);
+    if (link.dataParcelDraftId) {
+      await prisma.$executeRawUnsafe(`DELETE FROM "DataParcelDraft" WHERE "id" = ?`, link.dataParcelDraftId);
+    }
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: 'Failed to delete tempahan draft.' }, { status: 500 });

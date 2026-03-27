@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
-import { Archive, Download } from 'lucide-react';
+import { Archive, Download, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,16 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { KVAutocomplete } from '@/components/kv-autocomplete';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Table,
   TableBody,
@@ -61,11 +71,13 @@ export default function DataParcelPage() {
   const [isUpdatingSelectedStatus, setIsUpdatingSelectedStatus] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
+  const [isDeletingSelected, setIsDeletingSelected] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const loadDrafts = async () => {
     setIsLoadingDrafts(true);
     try {
-      const response = await fetch(`/api/tempahan/drafts?status=${activeTab}`, { cache: 'no-store' });
+      const response = await fetch(`/api/data-parcel/drafts?status=${activeTab}`, { cache: 'no-store' });
       if (!response.ok) {
         setEntries([]);
         return;
@@ -73,17 +85,16 @@ export default function DataParcelPage() {
 
       const data = await response.json();
       const drafts = Array.isArray(data.drafts) ? data.drafts : [];
-      const eligibleDrafts = drafts.filter((item: Record<string, unknown>) => Number(item.hargaPostage ?? 0) > 0);
-      const mapped: ParcelEntry[] = eligibleDrafts.map((item: Record<string, unknown>) => ({
+      const mapped: ParcelEntry[] = drafts.map((item: Record<string, unknown>) => ({
         id: String(item.id ?? ''),
-        namaCustomer: String(item.namaPenerima ?? ''),
+        namaCustomer: String(item.namaCustomer ?? ''),
         alamat: String(item.alamat ?? ''),
         poskod: String(item.poskod ?? ''),
-        kv: String(item.namaKolejVokasional ?? ''),
+        kv: String(item.kv ?? ''),
         noPhone: String(item.noPhone ?? ''),
-        noOrder: String(item.noOrder ?? item.noResit ?? ''),
+        noOrder: String(item.noOrder ?? ''),
         bilanganParcel: Number(item.bilanganParcel ?? 1),
-        source: 'tempahan',
+        source: 'manual',
       }));
 
       setEntries(mapped);
@@ -233,7 +244,7 @@ export default function DataParcelPage() {
 
     setIsUpdatingParcelId(entryId);
     try {
-      const response = await fetch(`/api/tempahan/drafts/${entryId}`, {
+      const response = await fetch(`/api/data-parcel/drafts/${entryId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bilanganParcel }),
@@ -343,7 +354,7 @@ export default function DataParcelPage() {
     setIsUpdatingSelectedStatus(true);
     try {
       const requests = selectedEntryIds.map((entryId) =>
-        fetch(`/api/tempahan/drafts/${entryId}`, {
+        fetch(`/api/data-parcel/drafts/${entryId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action }),
@@ -384,6 +395,43 @@ export default function DataParcelPage() {
       });
     } finally {
       setIsUpdatingSelectedStatus(false);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedEntryIds.length === 0 || isDeletingSelected) return;
+
+    setIsDeletingSelected(true);
+    try {
+      const requests = selectedEntryIds.map((entryId) =>
+        fetch(`/api/data-parcel/drafts/${entryId}`, { method: 'DELETE' })
+      );
+      const results = await Promise.all(requests);
+      const hasFailed = results.some((response) => !response.ok);
+
+      if (hasFailed) {
+        toast({
+          title: 'Padam gagal',
+          description: 'Sebahagian entri gagal dipadam. Sila cuba lagi.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      await loadDrafts();
+      setSelectedEntryIds([]);
+      toast({
+        title: 'Entri dipadam',
+        description: `${selectedEntryIds.length} entri berjaya dipadam.`,
+      });
+    } catch {
+      toast({
+        title: 'Padam gagal',
+        description: 'Ralat network/server semasa memadam entri.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeletingSelected(false);
     }
   };
 
@@ -458,6 +506,28 @@ export default function DataParcelPage() {
             </Button>
           </CardContent>
         </Card>
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Padam {selectedEntryIds.length} entri?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak boleh dibatalkan. Entri yang dipilih akan dipadam secara kekal.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                handleDeleteSelected();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Padam
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
         <Card className="border-none shadow-sm">
           <CardHeader>
@@ -510,6 +580,18 @@ export default function DataParcelPage() {
                       : activeTab === 'active'
                         ? `Arkibkan Dipilih (${selectedEntryIds.length})`
                         : `Pulihkan Dipilih (${selectedEntryIds.length})`}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-full gap-2 justify-start sm:w-auto sm:justify-center"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={isDeletingSelected || selectedEntryIds.length === 0}
+                  >
+                    <Trash2 size={16} />
+                    {isDeletingSelected
+                      ? 'Memadam...'
+                      : `Padam Dipilih (${selectedEntryIds.length})`}
                   </Button>
                 </div>
               </div>
@@ -602,6 +684,29 @@ export default function DataParcelPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Padam {selectedEntryIds.length} entri?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak boleh dibatalkan. Entri yang dipilih akan dipadam secara kekal.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                handleDeleteSelected();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Padam
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
