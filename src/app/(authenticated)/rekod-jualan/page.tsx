@@ -40,6 +40,7 @@ type RekodJualanItem = {
   createdAt: string;
   jumlahTempahan: number;
   jumlahUnit: number;
+  jumlahPostage: number;
   jumlahHasil: number;
   jumlahKV: number;
 };
@@ -68,6 +69,7 @@ const normalizeRekod = (item: Record<string, unknown>): RekodJualanItem => ({
   createdAt: String(item.createdAt ?? ''),
   jumlahTempahan: Number(item.jumlahTempahan ?? 0),
   jumlahUnit: Number(item.jumlahUnit ?? 0),
+  jumlahPostage: Number(item.jumlahPostage ?? 0),
   jumlahHasil: Number(item.jumlahHasil ?? 0),
   jumlahKV: Number(item.jumlahKV ?? 0),
 });
@@ -406,10 +408,9 @@ export default function RekodJualanPage() {
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead>Modul (Perkara)</TableHead>
-                  <TableHead>Sem</TableHead>
-                  <TableHead>Kohort</TableHead>
                   <TableHead className="text-right">Harga</TableHead>
                   <TableHead className="text-right">Unit Terjual</TableHead>
+                  <TableHead className="text-right">Jumlah Postage (RM)</TableHead>
                   <TableHead className="text-right">Hasil (RM)</TableHead>
                   <TableHead className="text-right">Bil. KV</TableHead>
                   <TableHead>Status</TableHead>
@@ -420,7 +421,7 @@ export default function RekodJualanPage() {
                 {rekod.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={isAdmin ? 9 : 8}
+                      colSpan={isAdmin ? 8 : 7}
                       className="h-24 text-center text-muted-foreground"
                     >
                       {isLoading
@@ -452,13 +453,14 @@ export default function RekodJualanPage() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>Sem {item.semester}</TableCell>
-                      <TableCell>{item.tahun}</TableCell>
                       <TableCell className="text-right">
                         {toCurrency(item.hargaSeunit)}
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {item.jumlahUnit}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {toCurrency(item.jumlahPostage)}
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {toCurrency(item.jumlahHasil)}

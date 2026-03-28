@@ -77,6 +77,7 @@ export async function GET() {
         p."createdAt",
         CAST(COUNT(DISTINCT t."id") AS INTEGER) AS "jumlahTempahan",
         CAST(COALESCE(p."legacyJumlahUnit", 0) + COALESCE(SUM(CAST(r."kuantiti" AS REAL)), 0) AS REAL) AS "jumlahUnit",
+        CAST(COALESCE(SUM(CAST(r."hargaPostage" AS REAL)), 0) AS REAL) AS "jumlahPostage",
         CAST(COALESCE(p."legacyJumlahHasil", 0) + COALESCE(SUM(CAST(r."kuantiti" AS REAL) * CAST(r."hargaSeunit" AS REAL) + CAST(r."hargaPostage" AS REAL)), 0) AS REAL) AS "jumlahHasil",
         CAST(COALESCE(p."legacyJumlahKV", 0) + COUNT(DISTINCT r."namaKolejVokasional") AS INTEGER) AS "jumlahKV"
       FROM "Penerbitan" p
