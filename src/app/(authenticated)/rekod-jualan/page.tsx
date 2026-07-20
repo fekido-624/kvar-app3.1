@@ -264,12 +264,12 @@ export default function RekodJualanPage() {
       {isAdmin && (
         <Card className="border-none shadow-sm mb-6">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <CardTitle>Pengurusan Penerbitan</CardTitle>
                 <CardDescription>Tambah atau urus senarai edisi penerbitan modul.</CardDescription>
               </div>
-              <div className="flex flex-wrap justify-end gap-2">
+              <div className="flex min-w-0 flex-wrap gap-2 sm:justify-end">
                 <input
                   ref={importFileRef}
                   type="file"
@@ -337,6 +337,7 @@ export default function RekodJualanPage() {
                       <SelectItem value="1">Semester 1</SelectItem>
                       <SelectItem value="2">Semester 2</SelectItem>
                       <SelectItem value="3">Semester 3</SelectItem>
+                      <SelectItem value="4">Semester 4</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

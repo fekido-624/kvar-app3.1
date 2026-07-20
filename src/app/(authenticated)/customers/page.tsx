@@ -294,7 +294,7 @@ export default function CustomersPage() {
         title="Pengurusan Pelanggan"
         description="Lihat dan urus semua rekod pelanggan."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" className="gap-2" onClick={handleExportCustomers} disabled={isExporting || customers.length === 0}>
               <Download size={18} />
               {isExporting ? 'Exporting...' : 'Export Excel'}
@@ -494,7 +494,7 @@ export default function CustomersPage() {
         )}
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
           Memaparkan {filteredCustomers.length === 0 ? 0 : pageStart + 1} - {Math.min(pageStart + PAGE_SIZE, filteredCustomers.length)} daripada {filteredCustomers.length}
         </p>

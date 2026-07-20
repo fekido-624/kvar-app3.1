@@ -443,7 +443,7 @@ export default function DataParcelPage() {
       />
 
       <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
-        <Card className="border-none shadow-sm">
+        <Card className="border-none shadow-sm min-w-0">
           <CardHeader>
             <CardTitle>Borang Parcel</CardTitle>
             <CardDescription>Boleh cari dari DB guna Nama Pelanggan atau KV. No. Telefon auto isi.</CardDescription>
@@ -529,7 +529,7 @@ export default function DataParcelPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-        <Card className="border-none shadow-sm">
+        <Card className="border-none shadow-sm min-w-0">
           <CardHeader>
             <CardTitle>Senarai Preview Parcel</CardTitle>
             <CardDescription>

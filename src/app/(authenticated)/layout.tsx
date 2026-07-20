@@ -30,7 +30,7 @@ export default function AuthenticatedLayout({
       <div className="print:hidden">
         <AppSidebar />
       </div>
-      <SidebarInset className="bg-background">
+      <SidebarInset className="bg-background min-w-0">
         <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center gap-2 border-b bg-card/95 backdrop-blur-md px-4 transition-all duration-300 ease-in-out print:hidden">
           <SidebarTrigger />
           <div className="ml-auto flex items-center gap-4">
@@ -39,8 +39,8 @@ export default function AuthenticatedLayout({
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-4 md:p-8 print:overflow-visible print:p-0">
-          <div className="mx-auto max-w-6xl w-full print:max-w-none">
+        <main className="flex-1 min-w-0 overflow-auto p-4 md:p-8 print:overflow-visible print:p-0">
+          <div className="mx-auto max-w-6xl w-full min-w-0 print:max-w-none">
             {children}
           </div>
         </main>
