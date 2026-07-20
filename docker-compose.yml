@@ -11,9 +11,11 @@ services:
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: file:./data/dev.db
-      AUTH_SECRET: tukar-ke-secret-production-anda
+      AUTH_SECRET: ${AUTH_SECRET}
+      COOKIE_SECURE: "false"
       GEMINI_API_KEY: ""
     volumes:
       - ./docker-data/data:/app/data
       - ./docker-data/templates:/app/templates
       - ./docker-data/public-templates:/app/public/templates
+

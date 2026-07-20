@@ -49,3 +49,8 @@ next-env.d.ts
 firebase-debug.log
 firestore-debug.log
 /src/generated/prisma
+
+# runtime data / volumes
+/backups/
+/docker-data/
+/docker-data-31/
