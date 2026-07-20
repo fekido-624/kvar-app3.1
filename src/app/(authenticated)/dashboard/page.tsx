@@ -2,10 +2,19 @@
 
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useAuth } from '@/components/auth-context';
 import { BarChart2, BookUser, FileText, Hash, Key, ListPlus, ReceiptText, ShieldCheck, Upload, UserPlus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Bar, BarChart, CartesianGrid, LabelList, XAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import Link from 'next/link';
 
 type ReceiptSummaryResponse = {
@@ -23,6 +32,24 @@ type DraftTempahanResponse = {
   status?: string;
 };
 
+type PenerbitanRecord = {
+  semester: number;
+  tahun: number;
+  jumlahHasil: number;
+};
+
+const ALL_YEARS = 'all';
+
+const formatRM = (value: number) =>
+  `RM ${value.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+const hasilChartConfig = {
+  jumlahHasil: {
+    label: 'Hasil Jualan',
+    color: 'hsl(var(--primary))',
+  },
+} satisfies ChartConfig;
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [jumlahPelanggan, setJumlahPelanggan] = useState(0);
@@ -30,6 +57,8 @@ export default function DashboardPage() {
   const [jumlahPenerbitanAktif, setJumlahPenerbitanAktif] = useState(0);
   const [nextNoResit, setNextNoResit] = useState('-');
   const [nextNoSebutHarga, setNextNoSebutHarga] = useState('-');
+  const [penerbitanRekod, setPenerbitanRekod] = useState<PenerbitanRecord[]>([]);
+  const [tahunFilter, setTahunFilter] = useState<string>(ALL_YEARS);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -57,14 +86,53 @@ export default function DashboardPage() {
       }
 
       if (rekodResponse.ok) {
-        const rekodData = (await rekodResponse.json()) as { rekod?: Array<{ aktif: number }> };
+        const rekodData = (await rekodResponse.json()) as {
+          rekod?: Array<{ aktif: number; semester: number; tahun: number; jumlahHasil: number }>;
+        };
         const aktif = (rekodData.rekod ?? []).filter((r) => r.aktif === 1).length;
         setJumlahPenerbitanAktif(aktif);
+        setPenerbitanRekod(
+          (rekodData.rekod ?? []).map((r) => ({
+            semester: Number(r.semester ?? 0),
+            tahun: Number(r.tahun ?? 0),
+            jumlahHasil: Number(r.jumlahHasil ?? 0),
+          }))
+        );
       }
     };
 
     void loadDashboardData();
   }, []);
+
+  const tahunOptions = useMemo(() => {
+    const years = new Set(penerbitanRekod.map((r) => r.tahun).filter((t) => t > 0));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [penerbitanRekod]);
+
+  const hasilPerSemester = useMemo(() => {
+    const totals = new Map<number, number>([
+      [1, 0],
+      [2, 0],
+      [3, 0],
+      [4, 0],
+    ]);
+
+    const filtered =
+      tahunFilter === ALL_YEARS
+        ? penerbitanRekod
+        : penerbitanRekod.filter((r) => String(r.tahun) === tahunFilter);
+
+    for (const r of filtered) {
+      if (totals.has(r.semester)) {
+        totals.set(r.semester, (totals.get(r.semester) ?? 0) + r.jumlahHasil);
+      }
+    }
+
+    return Array.from(totals.entries()).map(([semester, jumlahHasil]) => ({
+      semester: `Semester ${semester}`,
+      jumlahHasil,
+    }));
+  }, [penerbitanRekod, tahunFilter]);
 
   const stats = [
     {
@@ -127,6 +195,54 @@ export default function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      <Card className="border-none shadow-sm mb-8">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <CardTitle>Hasil Jualan Mengikut Semester</CardTitle>
+            <CardDescription>Jumlah hasil (RM) dari penerbitan, dikumpul ikut semester.</CardDescription>
+          </div>
+          <Select value={tahunFilter} onValueChange={setTahunFilter}>
+            <SelectTrigger className="w-full sm:w-[140px]">
+              <SelectValue placeholder="Tahun" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_YEARS}>Semua Tahun</SelectItem>
+              {tahunOptions.map((tahun) => (
+                <SelectItem key={tahun} value={String(tahun)}>
+                  {tahun}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={hasilChartConfig} className="aspect-auto h-[260px] w-full">
+            <BarChart data={hasilPerSemester} margin={{ top: 20 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="semester"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent formatter={(value) => formatRM(Number(value))} />}
+              />
+              <Bar dataKey="jumlahHasil" fill="var(--color-jumlahHasil)" radius={[4, 4, 0, 0]} maxBarSize={64}>
+                <LabelList
+                  dataKey="jumlahHasil"
+                  position="top"
+                  className="fill-foreground"
+                  fontSize={12}
+                  formatter={(value: number) => formatRM(value)}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="border-none shadow-sm">
