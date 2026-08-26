@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { startRegistration, browserSupportsWebAuthn } from '@simplewebauthn/browser';
 import { PageHeader } from '@/components/layout/page-header';
 import { useAuth } from '@/components/auth-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -9,7 +10,15 @@ import { PasswordInput } from '@/components/ui/password-input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { UserCircle, Shield, Save, KeyRound } from 'lucide-react';
+import { UserCircle, Shield, Save, KeyRound, Fingerprint, Trash2, Smartphone } from 'lucide-react';
+
+type WebauthnCredentialRow = {
+  id: string;
+  name: string;
+  deviceType: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+};
 
 export default function ProfilePage() {
   const { user, login } = useAuth();
@@ -20,6 +29,94 @@ export default function ProfilePage() {
   const [email, setEmail] = useState(user?.email || '');
   const [password, setPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  const [webAuthnSupported, setWebAuthnSupported] = useState(false);
+  const [credentials, setCredentials] = useState<WebauthnCredentialRow[]>([]);
+  const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const loadCredentials = async () => {
+    setIsLoadingCredentials(true);
+    try {
+      const response = await fetch('/api/webauthn/credentials', { cache: 'no-store' });
+      if (response.ok) {
+        const data = await response.json();
+        setCredentials(data.credentials ?? []);
+      }
+    } finally {
+      setIsLoadingCredentials(false);
+    }
+  };
+
+  useEffect(() => {
+    setWebAuthnSupported(browserSupportsWebAuthn());
+    void loadCredentials();
+  }, []);
+
+  const handleRegisterFingerprint = async () => {
+    setIsRegistering(true);
+    try {
+      const optionsResponse = await fetch('/api/webauthn/register-options', { method: 'POST' });
+      if (!optionsResponse.ok) {
+        const data = await optionsResponse.json().catch(() => ({}));
+        throw new Error(data.error ?? 'Tidak dapat mulakan pendaftaran fingerprint.');
+      }
+      const optionsJSON = await optionsResponse.json();
+
+      const attestationResponse = await startRegistration({ optionsJSON });
+
+      const deviceName = typeof navigator !== 'undefined' && /iphone|ipad/i.test(navigator.userAgent)
+        ? 'iPhone/iPad'
+        : typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
+          ? 'Android'
+          : 'Peranti ini';
+
+      const verifyResponse = await fetch('/api/webauthn/register-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response: attestationResponse, name: deviceName }),
+      });
+
+      const data = await verifyResponse.json().catch(() => ({}));
+      if (!verifyResponse.ok) {
+        throw new Error(data.error ?? 'Pendaftaran fingerprint gagal.');
+      }
+
+      toast({
+        title: 'Fingerprint Didaftarkan',
+        description: 'Kini anda boleh log masuk menggunakan fingerprint/Face ID pada peranti ini.',
+      });
+      await loadCredentials();
+    } catch (err) {
+      const message = (err as Error).name === 'NotAllowedError'
+        ? 'Pendaftaran fingerprint dibatalkan.'
+        : (err as Error).message || 'Pendaftaran fingerprint gagal.';
+      toast({
+        title: 'Pendaftaran Gagal',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const handleDeleteCredential = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const response = await fetch(`/api/webauthn/credentials/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error('Tidak dapat memadam fingerprint ini.');
+      }
+      await loadCredentials();
+      toast({ title: 'Fingerprint Dipadam', description: 'Peranti tersebut tidak lagi boleh log masuk dengan fingerprint.' });
+    } catch (err) {
+      toast({ title: 'Padam Gagal', description: (err as Error).message, variant: 'destructive' });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (!user) return null;
 
@@ -165,6 +262,67 @@ export default function ProfilePage() {
               </CardFooter>
             </Card>
           </form>
+
+          {webAuthnSupported && (
+            <Card className="border-none shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Fingerprint size={20} className="text-primary" />
+                  Log Masuk Fingerprint / Face ID
+                </CardTitle>
+                <CardDescription>
+                  Daftarkan peranti ini supaya boleh log masuk terus guna fingerprint atau Face ID, tanpa taip password.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {isLoadingCredentials ? (
+                  <p className="text-sm text-muted-foreground">Memuatkan...</p>
+                ) : credentials.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Belum ada peranti didaftarkan.</p>
+                ) : (
+                  credentials.map((cred) => (
+                    <div
+                      key={cred.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border p-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Smartphone size={18} className="text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{cred.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Didaftar {new Date(cred.createdAt).toLocaleDateString()}
+                            {cred.lastUsedAt && ` · Digunakan kali terakhir ${new Date(cred.lastUsedAt).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive shrink-0"
+                        onClick={() => handleDeleteCredential(cred.id)}
+                        disabled={deletingId === cred.id}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+              <CardFooter className="bg-muted/30 pt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="ml-auto gap-2"
+                  onClick={handleRegisterFingerprint}
+                  disabled={isRegistering}
+                >
+                  <Fingerprint size={18} />
+                  {isRegistering ? 'Mendaftar...' : 'Daftar Peranti Ini'}
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
         </div>
       </div>
     </div>
