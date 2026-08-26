@@ -9,7 +9,7 @@ export const buildSebutHargaTitle = (perkara: string) => {
 };
 
 export const extractSemesterFromPerkara = (perkara: string): number | null => {
-  const match = perkara.toUpperCase().match(/SEMESTER\s*([1-3])/);
+  const match = perkara.toUpperCase().match(/SEMESTER\s*([1-4])/);
   if (!match) return null;
   const value = Number(match[1]);
   return Number.isInteger(value) ? value : null;

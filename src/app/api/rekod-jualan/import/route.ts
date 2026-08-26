@@ -27,9 +27,9 @@ const parseBooleanLike = (value: unknown) => {
 
 const parseSemester = (value: unknown) => {
   const normalized = String(value ?? '').trim();
-  const match = normalized.match(/(1|2|3)/);
+  const match = normalized.match(/(1|2|3|4)/);
   const parsed = match ? Number(match[1]) : parseInteger(value, 0);
-  return parsed >= 1 && parsed <= 3 ? parsed : 0;
+  return parsed >= 1 && parsed <= 4 ? parsed : 0;
 };
 
 const ensurePenerbitanTable = async () => {
@@ -142,9 +142,9 @@ export async function POST(request: Request) {
     }
     seenPerkara.add(perkara);
 
-    if (semester < 1 || semester > 3) {
+    if (semester < 1 || semester > 4) {
       results.failed += 1;
-      results.errors.push({ row: rowNumber, perkara, error: 'Semester mesti 1, 2, atau 3.' });
+      results.errors.push({ row: rowNumber, perkara, error: 'Semester mesti 1, 2, 3, atau 4.' });
       continue;
     }
 

@@ -8,7 +8,7 @@ type Params = { params: Promise<{ id: string }> };
 const UpdatePenerbitanSchema = z.object({
   perkara: z.string().min(1).optional(),
   tajuk: z.string().optional(),
-  semester: z.number().int().min(1).max(3).optional(),
+  semester: z.number().int().min(1).max(4).optional(),
   tahun: z.number().int().min(2020).max(2099).optional(),
   edisi: z.number().int().min(1).max(9).optional(),
   hargaSeunit: z.number().min(0).optional(),

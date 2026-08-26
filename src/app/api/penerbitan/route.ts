@@ -7,7 +7,7 @@ import { requireCurrentUser } from '@/lib/auth';
 const CreatePenerbitanSchema = z.object({
   perkara: z.string().min(1),
   tajuk: z.string().default(''),
-  semester: z.number().int().min(1).max(3),
+  semester: z.number().int().min(1).max(4),
   tahun: z.number().int().min(2020).max(2099),
   edisi: z.number().int().min(1).max(9).default(1),
   hargaSeunit: z.number().min(0).default(0),
