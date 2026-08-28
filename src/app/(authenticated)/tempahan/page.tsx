@@ -21,7 +21,7 @@ import { CustomerAutocomplete } from '@/components/customer-autocomplete';
 import { KVAutocomplete } from '@/components/kv-autocomplete';
 import { useToast } from '@/hooks/use-toast';
 import { ReceiptPerkaraOption, ReceiptTajukOption } from '@/lib/types';
-import { buildSebutHargaTitle } from '@/lib/module-text';
+import { buildSebutHargaTitle, formatSemesterDisplay } from '@/lib/module-text';
 import {
   Table,
   TableBody,
@@ -1571,7 +1571,7 @@ export default function TempahanPage() {
                     perkara: penerbitan.perkara,
                     tajuk: buildSebutHargaTitle(penerbitan.perkara),
                     hargaSeunit: String(penerbitan.hargaSeunit || lastHargaSeunit),
-                    semester: `Semester ${penerbitan.semester}`,
+                    semester: formatSemesterDisplay(penerbitan.semester),
                   }));
                 }}
                 onOpenChange={(open) => { if (open) void loadPenerbitanOptions(); }}

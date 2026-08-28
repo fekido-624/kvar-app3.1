@@ -1,6 +1,13 @@
+const SEMESTER_4_SUFFIX = ' (SVM/SPM)';
+
+export const formatSemesterLabel = (semester: number) =>
+  semester === 4 ? `4${SEMESTER_4_SUFFIX}` : String(semester);
+
+export const formatSemesterDisplay = (semester: number) => `Semester ${formatSemesterLabel(semester)}`;
+
 export const buildModulePerkara = (baseModul: string, semester: number, tahun: number) => {
   const modul = baseModul.trim();
-  return `${modul} SEMESTER ${semester} (KOHORT ${tahun}) KOLEJ VOKASIONAL`;
+  return `${modul} SEMESTER ${formatSemesterLabel(semester)} (KOHORT ${tahun}) KOLEJ VOKASIONAL`;
 };
 
 export const buildSebutHargaTitle = (perkara: string) => {
@@ -17,5 +24,5 @@ export const extractSemesterFromPerkara = (perkara: string): number | null => {
 
 export const extractSemesterLabelFromPerkara = (perkara: string) => {
   const semester = extractSemesterFromPerkara(perkara);
-  return semester ? `Semester ${semester}` : '';
+  return semester ? formatSemesterDisplay(semester) : '';
 };
