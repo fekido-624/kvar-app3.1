@@ -337,7 +337,7 @@ export default function RekodJualanPage() {
                       <SelectItem value="1">Semester 1</SelectItem>
                       <SelectItem value="2">Semester 2</SelectItem>
                       <SelectItem value="3">Semester 3</SelectItem>
-                      <SelectItem value="4">Semester 4</SelectItem>
+                      <SelectItem value="4">Semester 4 (SVM/SPM)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
