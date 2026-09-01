@@ -68,10 +68,12 @@ export async function POST(request: Request) {
     const headerRow = (rawData[0] || []).map((cell) => normalizeHeader(cell));
 
     const detectedIndexes = {
+      id: findHeaderIndex(headerRow, ['id']),
       name: findHeaderIndex(headerRow, ['name', 'nama']),
       address: findHeaderIndex(headerRow, ['address', 'alamat']),
       postcode: findHeaderIndex(headerRow, ['postcode', 'post code', 'poskod']),
       phone: findHeaderIndex(headerRow, ['no.phone', 'no phone', 'no. telefon', 'no telefon', 'telefon', 'phone']),
+      phoneClean: findHeaderIndex(headerRow, ['phone_clean', 'phone clean', 'phoneclean']),
       kodKV: findHeaderIndex(headerRow, ['kod kv', 'kodkv']),
     };
 
@@ -101,6 +103,9 @@ export async function POST(request: Request) {
         normalizeHeader(rawData[0]?.[0]).includes('bil');
       const fallbackOffset = rowHasLeadingNoColumn ? 1 : 0;
 
+      const id = hasHeaderMapping && detectedIndexes.id >= 0
+        ? normalizeCell(row[detectedIndexes.id])
+        : '';
       const name = hasHeaderMapping
         ? normalizeCell(row[detectedIndexes.name])
         : normalizeCell(row[0 + fallbackOffset]);
@@ -110,9 +115,13 @@ export async function POST(request: Request) {
       const postcode = hasHeaderMapping
         ? normalizeCell(row[detectedIndexes.postcode])
         : normalizeCell(row[2 + fallbackOffset]);
-      const phone = hasHeaderMapping
+      const phoneRaw = hasHeaderMapping
         ? normalizeCell(row[detectedIndexes.phone])
         : normalizeCell(row[3 + fallbackOffset]);
+      const phoneClean = hasHeaderMapping && detectedIndexes.phoneClean >= 0
+        ? normalizeCell(row[detectedIndexes.phoneClean])
+        : '';
+      const phone = phoneClean || phoneRaw;
       const kodKV = hasHeaderMapping
         ? normalizeCell(row[detectedIndexes.kodKV])
         : normalizeCell(row[4 + fallbackOffset]);
@@ -129,6 +138,31 @@ export async function POST(request: Request) {
       }
 
       try {
+        // Priority 1: Update by ID if provided
+        if (id) {
+          const existing = await prisma.customer.findUnique({
+            where: { id },
+            select: { id: true },
+          });
+
+          if (existing) {
+            await prisma.customer.update({
+              where: { id },
+              data: {
+                name,
+                address,
+                postcode,
+                phone,
+                kodKV,
+              },
+            });
+            results.updated++;
+            results.success++;
+            continue;
+          }
+        }
+
+        // Priority 2: Check if phone exists (for new records or ID not found)
         const existingPhone = await prisma.customer.findFirst({
           where: { phone },
           select: { id: true },

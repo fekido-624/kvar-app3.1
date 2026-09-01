@@ -14,6 +14,7 @@ export async function GET() {
   });
 
   const rows = customers.map((customer) => ({
+    ID: customer.id,
     Name: customer.name,
     Address: customer.address,
     Postcode: customer.postcode,
@@ -25,6 +26,7 @@ export async function GET() {
   const worksheet = workbook.addWorksheet('Customers');
 
   worksheet.columns = [
+    { header: 'ID', key: 'ID', width: 28 },
     { header: 'Name', key: 'Name', width: 28 },
     { header: 'Address', key: 'Address', width: 45 },
     { header: 'Postcode', key: 'Postcode', width: 12 },
@@ -33,7 +35,9 @@ export async function GET() {
   ];
 
   rows.forEach((row) => {
-    worksheet.addRow(row);
+    const addedRow = worksheet.addRow(row);
+    // Force Phone column (column 5) as text to prevent Excel from truncating
+    addedRow.getCell(5).numFmt = '@';
   });
 
   const buffer = await workbook.xlsx.writeBuffer();

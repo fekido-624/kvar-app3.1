@@ -8,9 +8,20 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Customer } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Save, X } from 'lucide-react';
+
+const COUNTRY_CODES = [
+  { code: '+60', name: 'Malaysia', flag: '🇲🇾', display: '60' },
+  { code: '+65', name: 'Singapore', flag: '🇸🇬', display: '65' },
+  { code: '+62', name: 'Indonesia', flag: '🇮🇩', display: '62' },
+  { code: '+66', name: 'Thailand', flag: '🇹🇭', display: '66' },
+  { code: '+63', name: 'Philippines', flag: '🇵🇭', display: '63' },
+  { code: '+84', name: 'Vietnam', flag: '🇻🇳', display: '84' },
+  { code: '+673', name: 'Brunei', flag: '🇧🇳', display: '673' },
+];
 
 export default function EditCustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -19,6 +30,7 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [postcode, setPostcode] = useState('');
+  const [countryCode, setCountryCode] = useState('+60');
   const [phone, setPhone] = useState('');
   const [kodKV, setKodKV] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -35,6 +47,18 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
   const returnUrl = `/customers?${returnQueryParams.toString()}`;
   const { toast } = useToast();
 
+  const handlePhoneChange = (value: string) => {
+    // Buang semua yang bukan nombor
+    let cleaned = value.replace(/\D/g, '');
+    
+    // Sekat jika cuba letak 0 di depan
+    if (cleaned.startsWith('0')) {
+      cleaned = cleaned.substring(1);
+    }
+    
+    setPhone(cleaned);
+  };
+
   useEffect(() => {
     const loadCustomer = async () => {
       const response = await fetch(`/api/customers/${customerId}`, { cache: 'no-store' });
@@ -49,7 +73,30 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
       setName(found.name);
       setAddress(found.address);
       setPostcode(found.postcode);
-      setPhone(found.phone);
+      
+      // Parse phone number untuk pisahkan country code dan nombor
+      const fullPhone = found.phone;
+      let extractedCode = '+60';
+      let extractedPhone = fullPhone;
+      
+      // Cari country code yang match (dengan atau tanpa +)
+      for (const country of COUNTRY_CODES) {
+        const codeWithPlus = country.code;
+        const codeWithoutPlus = country.code.replace('+', '');
+        
+        if (fullPhone.startsWith(codeWithPlus)) {
+          extractedCode = country.code;
+          extractedPhone = fullPhone.substring(codeWithPlus.length);
+          break;
+        } else if (fullPhone.startsWith(codeWithoutPlus)) {
+          extractedCode = country.code;
+          extractedPhone = fullPhone.substring(codeWithoutPlus.length);
+          break;
+        }
+      }
+      
+      setCountryCode(extractedCode);
+      setPhone(extractedPhone);
       setKodKV(found.kodKV);
     };
 
@@ -61,11 +108,15 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
     if (!customer) return;
     setIsSaving(true);
 
+    // Gabungkan country code dengan phone number (tanpa tanda +)
+    const cleanCode = countryCode.replace('+', '');
+    const fullPhoneNumber = `${cleanCode}${phone}`;
+
     const payload: Record<string, string> = {};
     if (name !== customer.name) payload.name = name;
     if (address !== customer.address) payload.address = address;
     if (postcode !== customer.postcode) payload.postcode = postcode;
-    if (phone !== customer.phone) payload.phone = phone;
+    if (fullPhoneNumber !== customer.phone) payload.phone = fullPhoneNumber;
     if (kodKV !== customer.kodKV) payload.kodKV = kodKV;
 
     // Always send all fields to ensure complete update
@@ -75,7 +126,7 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
       return;
     }
 
-    const fullPayload = { name, address, postcode, kodKV, ...payload };
+    const fullPayload = { name, address, postcode, kodKV, phone: fullPhoneNumber, ...payload };
 
     const response = await fetch(`/api/customers/${customer.id}`, {
       method: 'PATCH',
@@ -150,15 +201,35 @@ export default function EditCustomerPage({ params }: { params: Promise<{ id: str
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Telefon</Label>
-                <Input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">Nombor sahaja.</p>
+                <div className="flex gap-2">
+                  <Select value={countryCode} onValueChange={setCountryCode}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRY_CODES.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          <span className="flex items-center gap-2">
+                            <span>{country.flag}</span>
+                            <span>{country.display}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="phone"
+                    value={phone}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    required
+                    className="flex-1"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Nombor sahaja, tanpa 0 di depan.
+                </p>
               </div>
             </div>
 

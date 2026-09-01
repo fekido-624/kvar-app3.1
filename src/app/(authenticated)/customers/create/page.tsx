@@ -8,13 +8,25 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Save, X } from 'lucide-react';
+
+const COUNTRY_CODES = [
+  { code: '+60', name: 'Malaysia', flag: '🇲🇾', display: '60' },
+  { code: '+65', name: 'Singapore', flag: '🇸🇬', display: '65' },
+  { code: '+62', name: 'Indonesia', flag: '🇮🇩', display: '62' },
+  { code: '+66', name: 'Thailand', flag: '🇹🇭', display: '66' },
+  { code: '+63', name: 'Philippines', flag: '🇵🇭', display: '63' },
+  { code: '+84', name: 'Vietnam', flag: '🇻🇳', display: '84' },
+  { code: '+673', name: 'Brunei', flag: '🇧🇳', display: '673' },
+];
 
 export default function CreateCustomerPage() {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [postcode, setPostcode] = useState('');
+  const [countryCode, setCountryCode] = useState('+60');
   const [phone, setPhone] = useState('');
   const [kodKV, setKodKV] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -22,9 +34,25 @@ export default function CreateCustomerPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const handlePhoneChange = (value: string) => {
+    // Buang semua yang bukan nombor
+    let cleaned = value.replace(/\D/g, '');
+    
+    // Sekat jika cuba letak 0 di depan
+    if (cleaned.startsWith('0')) {
+      cleaned = cleaned.substring(1);
+    }
+    
+    setPhone(cleaned);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+
+    // Gabungkan country code dengan phone number (tanpa tanda +)
+    const cleanCode = countryCode.replace('+', '');
+    const fullPhoneNumber = `${cleanCode}${phone}`;
 
     const response = await fetch('/api/customers', {
       method: 'POST',
@@ -33,7 +61,7 @@ export default function CreateCustomerPage() {
         name,
         address,
         postcode,
-        phone,
+        phone: fullPhoneNumber,
         kodKV,
       }),
     });
@@ -106,16 +134,36 @@ export default function CreateCustomerPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Telefon</Label>
-                <Input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Nombor telefon"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">Nombor sahaja.</p>
+                <div className="flex gap-2">
+                  <Select value={countryCode} onValueChange={setCountryCode}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRY_CODES.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          <span className="flex items-center gap-2">
+                            <span>{country.flag}</span>
+                            <span>{country.display}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    id="phone"
+                    value={phone}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    placeholder="123456789"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    required
+                    className="flex-1"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Nombor sahaja, tanpa 0 di depan.
+                </p>
               </div>
             </div>
 
