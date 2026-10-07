@@ -43,6 +43,8 @@ next-env.d.ts
 # database
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
 *.db-bak*
 
 # firebase
