@@ -353,7 +353,7 @@ export default function AddressGeneratorTestPage() {
 
 			<PageHeader
 				title="Penjana Alamat Test"
-				description="Isi maklumat untuk jana alamat. KV dan Nama menyokong auto search + auto fill data berkaitan."
+				description="Isi maklumat untuk jana alamat. Taip Nama / KV, tekan Cari atau Enter, kemudian pilih penerima untuk isi maklumat berkaitan."
 			/>
 
 			<div className="flex gap-6 items-start">
@@ -377,7 +377,7 @@ export default function AddressGeneratorTestPage() {
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="kv">KV (Auto Search)</Label>
+							<Label htmlFor="kv">KV (Cari)</Label>
 							<KVAutocomplete
 								value={form.kv}
 								onValueChange={(value) => updateForm('kv', value)}
@@ -387,7 +387,7 @@ export default function AddressGeneratorTestPage() {
 						</div>
 
 						<div className="space-y-2">
-							<Label htmlFor="nama">Nama (Auto Search)</Label>
+							<Label htmlFor="nama">Nama (Cari)</Label>
 							<CustomerAutocomplete
 								value={form.nama}
 								onValueChange={(value) => updateForm('nama', value)}

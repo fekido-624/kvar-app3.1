@@ -1,4 +1,5 @@
 "use client";
+import { SearchInput } from '@/components/search-input';
 
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -1109,19 +1110,14 @@ export default function ResitSatuPage() {
               <Label htmlFor="search-rekod-lama" className="whitespace-nowrap text-sm">
                 Cari KV:
               </Label>
-              <Input
+              <SearchInput
                 id="search-rekod-lama"
-                type="text"
+                label="Cari KV rekod resit"
                 placeholder="Taip nama/kod KV..."
                 value={searchRekodLama}
-                onChange={(e) => setSearchRekodLama(e.target.value)}
-                className="w-full sm:max-w-sm"
+                onSearch={setSearchRekodLama}
+                className="w-full sm:max-w-xl"
               />
-              {searchRekodLama && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => setSearchRekodLama('')}>
-                  Reset
-                </Button>
-              )}
               <span className="text-sm text-muted-foreground sm:ml-auto">{visibleDrafts.length} rekod dijumpai</span>
             </div>
           )}

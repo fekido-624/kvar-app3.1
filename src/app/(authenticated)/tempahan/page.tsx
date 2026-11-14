@@ -1,4 +1,5 @@
 "use client";
+import { SearchInput } from '@/components/search-input';
 
 import { useEffect, useMemo, useState } from 'react';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
@@ -1771,12 +1772,12 @@ export default function TempahanPage() {
                   <div className="grid gap-3 md:grid-cols-3">
                     <div className="space-y-1">
                       <Label htmlFor="searchKV">Cari KV</Label>
-                      <Input
+                      <SearchInput
                         id="searchKV"
-                        type="text"
+                        label="Cari KV rekod tempahan"
                         placeholder="Taip nama/kod KV..."
                         value={searchKV}
-                        onChange={(e) => setSearchKV(e.target.value)}
+                        onSearch={setSearchKV}
                       />
                     </div>
                     <div className="space-y-1">

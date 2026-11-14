@@ -31,11 +31,7 @@ export async function GET(request: Request) {
   try {
     const keyword = q.trim();
     const customers = await prisma.customer.findMany({
-      where: {
-        name: {
-          contains: keyword,
-        },
-      },
+      where: { OR: [{ name: { contains: keyword } }, { kodKV: { contains: keyword } }] },
       select: {
         id: true,
         name: true,
@@ -53,7 +49,7 @@ export async function GET(request: Request) {
       return a.name.localeCompare(b.name);
     });
 
-    return NextResponse.json({ customers });
+    return NextResponse.json({ customers: customers.slice(0, 50), truncated: customers.length > 50 });
   } catch (error) {
     return NextResponse.json(
       { error: `Failed to search customers: ${(error as Error).message}` },

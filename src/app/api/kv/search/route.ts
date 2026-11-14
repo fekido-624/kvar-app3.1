@@ -28,11 +28,7 @@ export async function GET(request: Request) {
   try {
     const keyword = q.trim();
     const kvList = await prisma.customer.findMany({
-      where: {
-        kodKV: {
-          contains: keyword,
-        },
-      },
+      where: { OR: [{ kodKV: { contains: keyword } }, { name: { contains: keyword } }] },
       select: {
         id: true,
         name: true,
@@ -50,7 +46,7 @@ export async function GET(request: Request) {
       return a.kodKV.localeCompare(b.kodKV);
     });
 
-    return NextResponse.json({ kvList });
+    return NextResponse.json({ kvList: kvList.slice(0, 50), truncated: kvList.length > 50 });
   } catch (error) {
     return NextResponse.json(
       { error: `Failed to search KV: ${(error as Error).message}` },

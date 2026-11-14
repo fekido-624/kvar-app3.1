@@ -1,4 +1,5 @@
 "use client";
+import { SearchInput } from '@/components/search-input';
 
 import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -25,7 +26,6 @@ import Link from 'next/link';
 import { useAuth } from '@/components/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
@@ -130,6 +130,7 @@ export default function CustomersPage() {
   }, []);
 
   const handleSearchChange = (value: string) => {
+    setSelectedCustomerIds([]);
     const hadSearch = searchTerm.trim().length > 0;
     const hasSearch = value.trim().length > 0;
 
@@ -156,6 +157,7 @@ export default function CustomersPage() {
   };
 
   const handleFilterChange = (value: 'all' | 'name' | 'postcode' | 'phone' | 'kodKV') => {
+    setSelectedCustomerIds([]);
     setFilterBy(value);
     setCurrentPage(1);
     replaceUrl(1, searchTerm, value);
@@ -316,11 +318,12 @@ export default function CustomersPage() {
       />
 
       <div className="mb-4 flex flex-col gap-2 md:flex-row">
-        <Input
+        <SearchInput
           placeholder="Cari pelanggan..."
+          label="Cari pelanggan"
           value={searchTerm}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="md:max-w-sm"
+          onSearch={handleSearchChange}
+          className="md:max-w-xl"
         />
         <Select
           value={filterBy}

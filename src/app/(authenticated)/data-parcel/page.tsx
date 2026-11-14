@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { KVAutocomplete } from '@/components/kv-autocomplete';
+import { CustomerAutocomplete } from '@/components/customer-autocomplete';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -451,10 +452,10 @@ export default function DataParcelPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="namaCustomer">Nama Pelanggan</Label>
-              <KVAutocomplete
+              <CustomerAutocomplete
                 value={form.namaCustomer}
                 onValueChange={(value) => updateForm('namaCustomer', value)}
-                onKVSelect={handleSelectNamaCustomer}
+                onCustomerSelect={handleSelectNamaCustomer}
                 placeholder="Cari Nama Pelanggan"
               />
             </div>

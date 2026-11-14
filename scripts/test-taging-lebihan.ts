@@ -69,7 +69,7 @@ async function main() {
   ] as const) assert.equal((await request(route, method, body, false)).status, 401);
   console.log('Authentication: all tag endpoints reject anonymous access.');
 
-  const customer = await prisma.customer.create({ data: { name: prefix, address: fixture.address, postcode: fixture.postcode, phone: fixture.phone, kodKV: prefix } });
+  const customer = await prisma.customer.create({ data: { name: `NAMEONLY-${prefix}`, address: fixture.address, postcode: fixture.postcode, phone: fixture.phone, kodKV: `KVONLY-${prefix}` } });
   customerId = customer.id;
   for (const name of ['PENERIMA SATU', 'PENERIMA DUA']) {
     await prisma.dataParcelDraft.create({ data: { noOrder: prefix, namaCustomer: name, alamat: fixture.address, poskod: fixture.postcode, noPhone: fixture.phone, kv: fixture.kv, bilanganParcel: 1 } });
@@ -81,6 +81,14 @@ async function main() {
   assert.equal(byCustomer.matches[0].sourceId, customer.id);
   const byKv = await json(`/api/taging-lebihan/lookup?mode=customer&q=${prefix.slice(5)}`);
   assert.ok(byKv.matches.some((match: { sourceId: string }) => match.sourceId === customer.id));
+  for (const term of [customer.name, customer.kodKV]) {
+    for (const [endpoint, key] of [['/api/customers/search', 'customers'], ['/api/kv/search', 'kvList']]) {
+      const found = await json(`${endpoint}?q=${encodeURIComponent(term)}`);
+      assert.ok(found[key].some((match: { id: string }) => match.id === customer.id), `${endpoint} must search both name and KV.`);
+      assert.deepEqual((await json(`${endpoint}?q=%20`))[key], []);
+      assert.equal((await request(`${endpoint}?q=test`, 'GET', undefined, false)).status, 401);
+    }
+  }
   assert.equal((await json(`/api/taging-lebihan/lookup?q=${prefix}-missing`)).matches.length, 0);
   console.log('Lookup: parcel-only number ignored, name/KV fallback and no match passed.');
 
