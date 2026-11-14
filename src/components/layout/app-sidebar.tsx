@@ -13,7 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Users, UserPlus, UserCircle, LogOut, ShieldCheck, BookUser, ReceiptText, MapPinned, Package, ShoppingCart, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, UserCircle, LogOut, ShieldCheck, BookUser, ReceiptText, MapPinned, Package, ShoppingCart, BookOpen, Tags } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSidebar } from '@/components/ui/sidebar';
@@ -100,6 +100,15 @@ export function AppSidebar() {
                   <Link href="/data-parcel">
                     <Package />
                     <span>Data Parcel</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === '/taging-lebihan'} tooltip="Taging Lebihan" onClick={handleNavClick} className="text-lg md:text-base md:[&_svg]:w-5 md:[&_svg]:h-5 [&_svg]:w-6 [&_svg]:h-6">
+                  <Link href="/taging-lebihan">
+                    <Tags />
+                    <span>Taging Lebihan</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

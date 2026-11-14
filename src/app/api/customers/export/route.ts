@@ -36,9 +36,15 @@ export async function GET() {
 
   rows.forEach((row) => {
     const addedRow = worksheet.addRow(row);
-    // Force Phone column (column 5) as text to prevent Excel from truncating
+    addedRow.alignment = { vertical: 'top', wrapText: true };
+    // Keep leading zeros in postcodes and phone numbers.
+    addedRow.getCell(4).numFmt = '@';
     addedRow.getCell(5).numFmt = '@';
   });
+
+  worksheet.getRow(1).font = { bold: true };
+  worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+  worksheet.autoFilter = 'A1:F1';
 
   const buffer = await workbook.xlsx.writeBuffer();
   const fileName = `customers-export-${Date.now()}.xlsx`;

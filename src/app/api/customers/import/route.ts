@@ -13,6 +13,9 @@ function normalizeHeader(value: unknown): string {
 }
 
 function findHeaderIndex(headers: string[], aliases: string[]): number {
+  // Prefer exact matches so e.g. Phone is not confused with Phone Clean.
+  const exactIndex = headers.findIndex((header) => aliases.includes(header));
+  if (exactIndex !== -1) return exactIndex;
   for (const alias of aliases) {
     const idx = headers.findIndex((header) => header === alias || header.includes(alias));
     if (idx !== -1) return idx;
@@ -77,7 +80,14 @@ export async function POST(request: Request) {
       kodKV: findHeaderIndex(headerRow, ['kod kv', 'kodkv']),
     };
 
-    const hasHeaderMapping = Object.values(detectedIndexes).every((index) => index >= 0);
+    // ID and Phone Clean are optional; ordinary exports and templates omit them.
+    const hasHeaderMapping = [
+      detectedIndexes.name,
+      detectedIndexes.address,
+      detectedIndexes.postcode,
+      detectedIndexes.phone,
+      detectedIndexes.kodKV,
+    ].every((index) => index >= 0);
 
     // Skip header row (index 0), process data rows
     const dataRows = rawData.slice(1);
