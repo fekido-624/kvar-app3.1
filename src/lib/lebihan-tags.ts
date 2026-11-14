@@ -11,7 +11,7 @@ export const lebihanTagSchema = z.object({
   phone: text(60),
   lebihan: z.number().int().min(0).max(1000000),
   naskahGuru: z.number().int().min(0).max(1000000),
-  sourceType: z.enum(['manual', 'parcel', 'customer']).default('manual'),
+  sourceType: z.enum(['manual', 'parcel', 'customer', 'tempahan']).default('manual'),
   sourceId: z.string().max(100).default(''),
 }).refine((tag) => tag.lebihan > 0 || tag.naskahGuru > 0, {
   message: 'Isi sekurang-kurangnya satu kuantiti melebihi 0.',
@@ -31,6 +31,7 @@ export type TagPreviewPage = {
   width: number;
   height: number;
   margin: number;
+  frame: { x1: number; y1: number; x2: number; y2: number; thickness: number }[];
   lines: { text: string; x: number; y: number; size: number; bold: boolean }[];
 };
 

@@ -14,6 +14,9 @@ if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Erro
 const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! }) });
 const prefix = `TEST-TAG-${randomUUID()}`;
 const createdTagIds: string[] = [];
+const receiptIds: string[] = [];
+const extraParcelIds: string[] = [];
+const orderIds = [prefix + '-pickup', prefix + '-linked', prefix + '-duplicate'];
 let customerId = '';
 let cookie = '';
 
@@ -72,14 +75,55 @@ async function main() {
     await prisma.dataParcelDraft.create({ data: { noOrder: prefix, namaCustomer: name, alamat: fixture.address, poskod: fixture.postcode, noPhone: fixture.phone, kv: fixture.kv, bilanganParcel: 1 } });
   }
   const byOrder = await json(`/api/taging-lebihan/lookup?mode=order&q=${prefix}`);
-  assert.equal(byOrder.matches.length, 2);
+  assert.equal(byOrder.matches.length, 0, 'Parcel numbers alone must not match a Tempahan search.');
   const byCustomer = await json(`/api/taging-lebihan/lookup?mode=customer&q=${prefix}`);
   assert.equal(byCustomer.matches.length, 1);
   assert.equal(byCustomer.matches[0].sourceId, customer.id);
   const byKv = await json(`/api/taging-lebihan/lookup?mode=customer&q=${prefix.slice(5)}`);
   assert.ok(byKv.matches.some((match: { sourceId: string }) => match.sourceId === customer.id));
   assert.equal((await json(`/api/taging-lebihan/lookup?q=${prefix}-missing`)).matches.length, 0);
-  console.log('Lookup: duplicate No Order, name/KV fallback and no match passed.');
+  console.log('Lookup: parcel-only number ignored, name/KV fallback and no match passed.');
+
+  // Tempahan displays full ReceiptDraft.noResit as No Siri, while the parcel
+  // number may be its suffix or absent altogether for collection orders.
+  await json('/api/tempahan/drafts');
+  const linkedParcel = await prisma.dataParcelDraft.create({ data: { noOrder: '26', namaCustomer: prefix,
+    alamat: fixture.address, poskod: fixture.postcode, noPhone: fixture.phone, kv: fixture.kv, bilanganParcel: 1 } });
+  extraParcelIds.push(linkedParcel.id);
+  const paddedParcel = await prisma.dataParcelDraft.create({ data: { noOrder: '0007', namaCustomer: prefix,
+    alamat: fixture.address, poskod: fixture.postcode, noPhone: fixture.phone, kv: fixture.kv, bilanganParcel: 1 } });
+  extraParcelIds.push(paddedParcel.id);
+  for (const [index, noResit] of ['5025', '5026', '5025'].entries()) {
+    const receipt = await prisma.receiptDraft.create({ data: { noResit, namaPenerima: prefix,
+      namaKolejVokasional: fixture.kv, perkara: 'Ujian', kuantiti: 100, hargaSeunit: 1,
+      hargaPostage: index ? 10 : 0, tarikh: new Date(), semester: prefix } });
+    receiptIds.push(receipt.id);
+    const parcelId = index === 1 ? linkedParcel.id : '';
+    await prisma.$executeRaw`INSERT INTO "TempahanDraft" ("id", "receiptDraftId", "dataParcelDraftId", "bilanganAlamat", "alamat", "poskod", "noPhone", "createdAt", "updatedAt")
+      VALUES (${orderIds[index]}, ${receipt.id}, ${parcelId}, 1, ${fixture.address}, ${fixture.postcode}, ${fixture.phone}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`;
+  }
+  const fullReference = await json('/api/taging-lebihan/lookup?mode=order&q=5025');
+  const pickup = fullReference.matches.find((match: { sourceId: string }) => match.sourceId === orderIds[0]);
+  assert.equal(fullReference.matches.filter((match: { sourceId: string }) => orderIds.includes(match.sourceId)).length, 2,
+    'Duplicate full references must be presented as separate choices.');
+  assert.ok(pickup, 'Full No Siri 5025 must find a collection order without parcel data.');
+  assert.equal(pickup.noOrder, '5025');
+  assert.equal(pickup.address, fixture.address);
+  assert.equal(pickup.phone, fixture.phone);
+  const savedPickup = await json('/api/taging-lebihan', 'POST', { ...fixture, ...pickup }, 201);
+  createdTagIds.push(savedPickup.tag.id);
+  await json('/api/taging-lebihan', 'DELETE', { ids: [savedPickup.tag.id] });
+  createdTagIds.pop();
+  const linkedFull = await json('/api/taging-lebihan/lookup?mode=order&q=5026');
+  assert.ok(linkedFull.matches.some((match: { sourceId: string }) => match.sourceId === orderIds[1]));
+  const shortReference = await json('/api/taging-lebihan/lookup?mode=order&q=026');
+  assert.equal(shortReference.matches.filter((match: { sourceId: string }) =>
+    [orderIds[1], linkedParcel.id].includes(match.sourceId)).length, 0, 'Parcel suffix must not match full Tempahan number.');
+  const padded = await json('/api/taging-lebihan/lookup?mode=order&q=7');
+  assert.ok(!padded.matches.some((match: { sourceId: string }) => match.sourceId === paddedParcel.id));
+  const paddedOrder = await json('/api/taging-lebihan/lookup?mode=order&q=05025');
+  assert.ok(paddedOrder.matches.some((match: { sourceId: string }) => match.sourceId === orderIds[0]));
+  console.log('Lookup regression: full Tempahan 5025, duplicate choices, collection orders and leading zeros passed; parcel suffix excluded.');
 
   for (const counts of [{ lebihan: 0, naskahGuru: 0 }, { lebihan: -1 }, { naskahGuru: 1.5 }]) {
     await json('/api/taging-lebihan', 'POST', { ...fixture, ...counts }, 400);
@@ -120,6 +164,11 @@ async function main() {
   assert.deepEqual(await pdfText(Buffer.from(preview.pdf, 'base64')), pages);
   assert.ok(preview.pages[1].lines.every((line: { y: number }) => line.y < preview.pages[1].height / 2));
   assert.ok(preview.pages[2].lines.every((line: { y: number }) => line.y > preview.pages[2].height / 2));
+  assert.ok(preview.pages[0].frame.length > 8, 'Teacher label has a patterned frame.');
+  assert.ok(preview.pages[1].frame.length > 8, 'Teacher-only label keeps its frame.');
+  assert.equal(preview.pages[2].frame.length, 0, 'No teacher quantity means no frame in the blank slot.');
+  assert.ok(preview.pages[0].frame.every((line: { y1: number; y2: number }) =>
+    line.y1 < preview.pages[0].height / 2 && line.y2 < preview.pages[0].height / 2), 'Frame stays entirely in teacher half.');
   assert.equal((await request('/api/taging-lebihan/pdf', 'POST', { ids: ['missing'] })).status, 404);
   await json('/api/taging-lebihan/pdf', 'POST', { preview: { ...fixture, name: 'N'.repeat(160), kv: 'K'.repeat(160), address: 'A'.repeat(600) } }, 400);
   const longResponse = await request('/api/taging-lebihan/pdf', 'POST', { preview: { ...fixture, address: 'BLOK PENTADBIRAN, KOLEJ VOKASIONAL CONTOH, JALAN PENDIDIKAN, TAMAN ILMU, DAERAH CONTOH' } });
@@ -139,6 +188,9 @@ async function main() {
 
 main().finally(async () => {
   await prisma.lebihanTag.deleteMany({ where: { id: { in: createdTagIds } } });
+  for (const id of orderIds) await prisma.$executeRaw`DELETE FROM "TempahanDraft" WHERE "id" = ${id}`;
+  await prisma.receiptDraft.deleteMany({ where: { id: { in: receiptIds } } });
+  await prisma.dataParcelDraft.deleteMany({ where: { id: { in: extraParcelIds } } });
   await prisma.dataParcelDraft.deleteMany({ where: { noOrder: prefix } });
   if (customerId) await prisma.customer.deleteMany({ where: { id: customerId } });
   await prisma.$disconnect();

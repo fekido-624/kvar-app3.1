@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { useToast } from '@/hooks/use-toast';
 import { lebihanTagSchema, type LebihanTagInput, type LebihanTagRecord, type TagPreviewPage } from '@/lib/lebihan-tags';
 
-type Match = Pick<LebihanTagInput, 'noOrder' | 'name' | 'kv' | 'address' | 'postcode' | 'phone' | 'sourceType' | 'sourceId'>;
+type Match = Pick<LebihanTagInput, 'noOrder' | 'name' | 'kv' | 'address' | 'postcode' | 'phone' | 'sourceType' | 'sourceId'> & { noResit?: string; semester?: string };
 const emptyForm = {
   noOrder: '', name: '', kv: '', address: '', postcode: '', phone: '',
   lebihan: '0', naskahGuru: '0', sourceType: 'manual' as LebihanTagInput['sourceType'], sourceId: '',
@@ -99,7 +99,7 @@ export default function TagingLebihanPage() {
       if (data.matches.length === 1) applyMatch(data.matches[0]);
       else {
         setMatches(data.matches);
-        setLookupMessage(data.matches.length ? `${data.matches.length} padanan. Pilih penerima yang betul.${data.truncated ? ' Had 50 padanan; perincikan carian.' : ''}` : mode === 'order' ? 'No Order tidak dijumpai. Cuba carian Nama / KV.' : 'Tiada customer dijumpai. Cuba nama atau KV lain.');
+        setLookupMessage(data.matches.length ? `${data.matches.length} padanan. Pilih penerima yang betul.${data.truncated ? ' Had 50 padanan; perincikan carian.' : ''}` : mode === 'order' ? 'No Tempahan tidak dijumpai. Cuba carian Nama / KV.' : 'Tiada customer dijumpai. Cuba nama atau KV lain.');
       }
     } catch (error) { report(error); }
     finally { setSearching(false); }
@@ -168,7 +168,7 @@ export default function TagingLebihanPage() {
       const bytes = Uint8Array.from(atob(data.pdf), (character) => character.charCodeAt(0));
       const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
       setPreviewPages(data.pages);
-      setPdfUrl(url); setPdfTitle(saved ? `${selected.length} tempahan dipilih` : `No Order ${form.noOrder} — pratonton borang`);
+      setPdfUrl(url); setPdfTitle(saved ? `${selected.length} tempahan dipilih` : `No Tempahan ${form.noOrder} — pratonton borang`);
     } catch (error) { report(error); }
     finally { setBusy(false); }
   };
@@ -199,6 +199,7 @@ export default function TagingLebihanPage() {
             <p className="text-xs text-muted-foreground">Halaman {index + 1} / {previewPages.length}</p>
             <svg role="img" aria-label={`Pratonton label halaman ${index + 1}`} viewBox={`0 0 ${sheet.width} ${sheet.height}`} className="w-full border bg-white text-black shadow-sm" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
               <line x1={sheet.margin} y1={sheet.height / 2} x2={sheet.width - sheet.margin} y2={sheet.height / 2} stroke="#999" strokeWidth="0.5" strokeDasharray="3 3" />
+              {sheet.frame.map((stroke, strokeIndex) => <line key={`frame-${strokeIndex}`} x1={stroke.x1} y1={sheet.height - stroke.y1} x2={stroke.x2} y2={sheet.height - stroke.y2} stroke="black" strokeWidth={stroke.thickness} />)}
               {sheet.lines.map((line, lineIndex) => <text key={lineIndex} x={line.x} y={sheet.height - line.y} fontSize={line.size} fontWeight={line.bold ? 'bold' : 'normal'} fill="black">{line.text}</text>)}
             </svg>
           </div>)}
@@ -206,22 +207,23 @@ export default function TagingLebihanPage() {
       </Card>}
 
       <Card>
-        <CardHeader><CardTitle>Cari penerima</CardTitle><CardDescription>Cari No Order dari Data Parcel, atau pilih customer melalui Nama / KV.</CardDescription></CardHeader>
+      <CardHeader><CardTitle>Cari penerima</CardTitle><CardDescription>Cari nombor penuh dari Tempahan (kolum No Siri), atau pilih customer melalui Nama / KV.</CardDescription></CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2" role="group" aria-label="Jenis carian">
-            <Button type="button" disabled={searching} variant={mode === 'order' ? 'default' : 'outline'} aria-pressed={mode === 'order'} onClick={() => { setMode('order'); setMatches([]); setLookupMessage(''); }}>No Order</Button>
+            <Button type="button" disabled={searching} variant={mode === 'order' ? 'default' : 'outline'} aria-pressed={mode === 'order'} onClick={() => { setMode('order'); setMatches([]); setLookupMessage(''); }}>No Tempahan</Button>
             <Button type="button" disabled={searching} variant={mode === 'customer' ? 'default' : 'outline'} aria-pressed={mode === 'customer'} onClick={() => { setMode('customer'); setMatches([]); setLookupMessage(''); }}>Nama / KV</Button>
           </div>
           <form onSubmit={lookup} className="flex flex-col gap-2 sm:flex-row">
-            <Label htmlFor="lookup-query" className="sr-only">{mode === 'order' ? 'Cari No Order' : 'Cari Nama atau KV'}</Label>
-            <Input id="lookup-query" required disabled={searching} maxLength={160} value={lookupQuery} placeholder={mode === 'order' ? 'Masukkan No Order penuh' : 'Taip nama customer atau KV'} onChange={(event) => { setLookupQuery(event.target.value); setMatches([]); setLookupMessage(''); }} />
+            <Label htmlFor="lookup-query" className="sr-only">{mode === 'order' ? 'Cari No Tempahan' : 'Cari Nama atau KV'}</Label>
+            <Input id="lookup-query" required disabled={searching} maxLength={160} value={lookupQuery} placeholder={mode === 'order' ? 'Contoh: 5025 (No Tempahan / No Siri)' : 'Taip nama customer atau KV'} onChange={(event) => { setLookupQuery(event.target.value); setMatches([]); setLookupMessage(''); }} />
             <Button disabled={searching || !lookupQuery.trim()} type="submit"><Search className="mr-2 h-4 w-4" />{searching ? 'Mencari…' : 'Cari'}</Button>
           </form>
           {lookupMessage && <p role="status" className="text-sm text-muted-foreground">{lookupMessage}</p>}
           {matches.length > 0 && <ul className="max-h-72 space-y-2 overflow-auto" aria-label="Padanan penerima">
             {matches.map((match) => <li key={`${match.sourceType}-${match.sourceId}`}><button type="button" onClick={() => applyMatch(match)} className="w-full rounded-md border p-3 text-left hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
               <span className="block font-medium">{match.name} · {match.kv}</span>
-              <span className="block text-sm text-muted-foreground">{match.noOrder ? `No Order ${match.noOrder} · ` : ''}{match.phone}</span>
+              <span className="block text-sm text-muted-foreground">{match.noOrder ? `No Tempahan ${match.noOrder} · ` : ''}{match.phone}</span>
+              {match.noResit && <span className="block text-sm text-muted-foreground">No Siri {match.noResit}{match.semester ? ` · ${match.semester}` : ''}</span>}
               <span className="block text-sm text-muted-foreground">{match.address} {match.postcode}</span>
             </button></li>)}
           </ul>}
@@ -234,7 +236,7 @@ export default function TagingLebihanPage() {
           <form onSubmit={save} className="space-y-5">
             <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
               {([
-                ['noOrder', 'No Tempahan / No Order', 80], ['name', 'Nama penerima', 160], ['kv', 'KV', 160],
+                ['noOrder', 'No Tempahan', 80], ['name', 'Nama penerima', 160], ['kv', 'KV', 160],
                 ['phone', 'No. telefon', 60], ['postcode', 'Poskod', 20],
               ] as const).map(([key, title, max]) => <div key={key} className="space-y-2"><Label htmlFor={`tag-${key}`}>{title}</Label><Input id={`tag-${key}`} required maxLength={max} value={form[key]} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} /></div>)}
               <div className="space-y-2 sm:col-span-2"><Label htmlFor="tag-address">Alamat</Label><Textarea id="tag-address" required maxLength={600} value={form.address} onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))} /></div>
@@ -258,7 +260,7 @@ export default function TagingLebihanPage() {
             <Button variant={status === 'active' ? 'default' : 'outline'} aria-pressed={status === 'active'} onClick={() => setStatus('active')}>Aktif</Button>
             <Button variant={status === 'archived' ? 'default' : 'outline'} aria-pressed={status === 'archived'} onClick={() => setStatus('archived')}>Arkib</Button>
           </div>
-          <div className="space-y-2"><Label htmlFor="tag-search">Cari rekod {status === 'active' ? 'aktif' : 'arkib'}</Label><Input id="tag-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="No Order, nama, KV atau telefon" maxLength={160} /></div>
+          <div className="space-y-2"><Label htmlFor="tag-search">Cari rekod {status === 'active' ? 'aktif' : 'arkib'}</Label><Input id="tag-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="No Tempahan, nama, KV atau telefon" maxLength={160} /></div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-auto text-sm text-muted-foreground" aria-live="polite">{selected.length} dipilih · {loading ? 'Memuatkan…' : `${tags.length} rekod`}</span>
             <Button variant="outline" disabled={busy || loading || !selected.length} onClick={() => preview(true)}><Eye className="mr-2 h-4 w-4" />PDF pilihan</Button>
@@ -268,7 +270,7 @@ export default function TagingLebihanPage() {
           {loadError ? <div role="alert" className="space-y-2 text-sm text-destructive"><p>{loadError}</p><Button variant="outline" onClick={() => setRefresh((current) => current + 1)}>Cuba semula</Button></div> : <Table>
             <TableHeader><TableRow>
               <TableHead><Checkbox aria-label="Pilih semua rekod pada halaman ini" disabled={loading || busy || !visible.length} checked={allVisibleSelected ? true : visible.some((tag) => selected.includes(tag.id)) ? 'indeterminate' : false} onCheckedChange={(checked) => select(visible.map((tag) => tag.id), checked === true)} /></TableHead>
-              <TableHead>No Order</TableHead><TableHead>Penerima / KV</TableHead><TableHead>Lebihan</TableHead><TableHead>Naskah Guru</TableHead><TableHead>Tindakan</TableHead>
+              <TableHead>No Tempahan</TableHead><TableHead>Penerima / KV</TableHead><TableHead>Lebihan</TableHead><TableHead>Naskah Guru</TableHead><TableHead>Tindakan</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {loading ? <TableRow><TableCell colSpan={6} className="py-8 text-center">Memuatkan rekod…</TableCell></TableRow> : !visible.length ? <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">{query ? 'Tiada rekod sepadan dengan carian.' : status === 'active' ? 'Belum ada tag. Cari penerima dan simpan tag pertama.' : 'Belum ada rekod dalam arkib.'}</TableCell></TableRow> : visible.map((tag) => <TableRow key={tag.id}>

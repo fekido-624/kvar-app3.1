@@ -5,9 +5,11 @@ mengikut akses modul Tempahan sedia ada.
 
 ## Aliran
 
-1. Cari No Order penuh dalam Data Parcel. Jika beberapa padanan ditemui, pilih
+1. Cari No Tempahan penuh, iaitu nilai pada kolum No Siri dalam Tempahan
+   (`ReceiptDraft.noResit`), contohnya `5025`. Nombor pendek parcel seperti `25`
+   tidak digunakan untuk carian tag. Jika beberapa padanan ditemui, pilih
    penerima menggunakan nama, KV, alamat dan telefon yang dipaparkan.
-2. Jika tiada padanan, gunakan carian Nama / KV dalam rekod Customer. No Order
+2. Jika tiada padanan, gunakan carian Nama / KV dalam rekod Customer. No Tempahan
    yang dimasukkan dikekalkan dan boleh disunting.
 3. Semak nama, KV, alamat, poskod dan telefon. Maklumat ini disimpan sebagai
    salinan dalam tag; suntingan tidak mengubah Customer, Data Parcel atau Tempahan.
@@ -20,6 +22,9 @@ mengikut akses modul Tempahan sedia ada.
 
 - Satu halaman A6 landscape (148 × 105 mm) untuk setiap rekod yang dipilih.
 - Bahagian atas untuk Lebihan; bahagian bawah untuk Naskah Guru.
+- Bahagian Naskah Guru mempunyai bingkai dua garisan dengan corak serong hitam
+  putih supaya mudah dikenal pasti pada cetakan monokrom. Bingkai tidak dicetak
+  jika kuantiti Naskah Guru ialah sifar.
 - Kuantiti sifar meninggalkan bahagian tersebut kosong.
 - Garisan putus-putus melintang di tengah untuk panduan potong.
 - Cetak pada A6, landscape, **100% / Actual size**.
@@ -31,7 +36,10 @@ mengikut akses modul Tempahan sedia ada.
 ## Rekod
 
 - Rekod kekal dalam SQLite melalui model Prisma `LebihanTag`.
-- Tab Aktif dan Arkib masing-masing menyokong carian No Order, nama, KV dan telefon.
+- Tab Aktif dan Arkib masing-masing menyokong carian No Tempahan, nama, KV dan telefon.
+- Nama medan simpanan `noOrder` dikekalkan untuk keserasian; bagi tag baharu ia
+  menyimpan nombor penuh Tempahan. Rekod tag lama tidak ditukar secara automatik;
+  nombornya boleh dibetulkan melalui Sunting.
 - Rekod boleh disunting, diarkib, dipulihkan dan dipadam kekal selepas pengesahan.
 - Maksimum 200 rekod bagi satu tindakan pukal / PDF. Pilihan merentasi halaman
   senarai dikekalkan; perubahan carian atau tab mengosongkan pilihan.
