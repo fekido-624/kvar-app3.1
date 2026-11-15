@@ -13,7 +13,7 @@ mengikut akses modul Tempahan sedia ada.
    yang dimasukkan dikekalkan dan boleh disunting.
 3. Semak nama, KV, alamat, poskod dan telefon. Maklumat ini disimpan sebagai
    salinan dalam tag; suntingan tidak mengubah Customer, Data Parcel atau Tempahan.
-4. Isi kuantiti Lebihan dan Naskah Guru sebagai integer bukan negatif.
+4. Isi kuantiti Lebihan dan Naskhah Guru sebagai integer bukan negatif.
    Kedua-duanya sifar tidak dibenarkan.
 5. Simpan, pilih satu atau beberapa rekod, kemudian tekan **PDF pilihan**.
    Pratonton terus dalam halaman dan fail PDF menggunakan susun atur yang sama.
@@ -21,10 +21,10 @@ mengikut akses modul Tempahan sedia ada.
 ## Cetakan
 
 - Satu halaman A6 landscape (148 × 105 mm) untuk setiap rekod yang dipilih.
-- Bahagian atas untuk Lebihan; bahagian bawah untuk Naskah Guru.
-- Bahagian Naskah Guru mempunyai bingkai dua garisan dengan corak serong hitam
+- Bahagian atas untuk Lebihan; bahagian bawah untuk Naskhah Guru.
+- Bahagian Naskhah Guru mempunyai bingkai dua garisan dengan corak serong hitam
   putih supaya mudah dikenal pasti pada cetakan monokrom. Bingkai tidak dicetak
-  jika kuantiti Naskah Guru ialah sifar.
+  jika kuantiti Naskhah Guru ialah sifar.
 - Kuantiti sifar meninggalkan bahagian tersebut kosong.
 - Garisan putus-putus melintang di tengah untuk panduan potong.
 - Cetak pada A6, landscape, **100% / Actual size**.

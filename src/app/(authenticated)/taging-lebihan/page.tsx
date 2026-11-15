@@ -196,7 +196,7 @@ export default function TagingLebihanPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Taging Lebihan" description="Label Lebihan dan Naskah Guru dalam satu kertas A6 landscape." />
+      <PageHeader title="Taging Lebihan" description="Label Lebihan dan Naskhah Guru dalam satu kertas A6 landscape." />
 
       {pdfUrl && <Card id="tag-pdf" className="scroll-mt-20">
         <CardHeader>
@@ -250,10 +250,10 @@ export default function TagingLebihanPage() {
                 ['phone', 'No. telefon', 60], ['postcode', 'Poskod', 20],
               ] as const).map(([key, title, max]) => <div key={key} className="space-y-2"><Label htmlFor={`tag-${key}`}>{title}</Label><Input id={`tag-${key}`} required maxLength={max} value={form[key]} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} /></div>)}
               <div className="space-y-2 sm:col-span-2"><Label htmlFor="tag-address">Alamat</Label><Textarea id="tag-address" required maxLength={600} value={form.address} onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))} /></div>
-              <div className="space-y-2"><Label htmlFor="tag-lebihan">Lebihan (naskah)</Label><Input id="tag-lebihan" type="number" required min="0" max="1000000" step="1" value={form.lebihan} onChange={(event) => setForm((current) => ({ ...current, lebihan: event.target.value }))} /></div>
-              <div className="space-y-2"><Label htmlFor="tag-naskahGuru">Naskah Guru (naskah)</Label><Input id="tag-naskahGuru" type="number" required min="0" max="1000000" step="1" value={form.naskahGuru} onChange={(event) => setForm((current) => ({ ...current, naskahGuru: event.target.value }))} /></div>
+              <div className="space-y-2"><Label htmlFor="tag-lebihan">Lebihan (naskhah)</Label><Input id="tag-lebihan" type="number" required min="0" max="1000000" step="1" value={form.lebihan} onChange={(event) => setForm((current) => ({ ...current, lebihan: event.target.value }))} /></div>
+              <div className="space-y-2"><Label htmlFor="tag-naskahGuru">Naskhah Guru (naskhah)</Label><Input id="tag-naskahGuru" type="number" required min="0" max="1000000" step="1" value={form.naskahGuru} onChange={(event) => setForm((current) => ({ ...current, naskahGuru: event.target.value }))} /></div>
             </fieldset>
-            <p className="text-sm text-muted-foreground">Lebihan di atas, Naskah Guru di bawah. Kuantiti 0 tidak dicetak; sekurang-kurangnya satu kuantiti mesti melebihi 0.</p>
+            <p className="text-sm text-muted-foreground">Lebihan di atas, Naskhah Guru di bawah. Kuantiti 0 tidak dicetak; sekurang-kurangnya satu kuantiti mesti melebihi 0.</p>
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={busy}><Tags className="mr-2 h-4 w-4" />{busy ? 'Memproses…' : editingId ? 'Simpan perubahan' : 'Simpan tag'}</Button>
               <Button type="button" variant="outline" disabled={busy} onClick={() => preview(false)}><Eye className="mr-2 h-4 w-4" />Pratonton borang</Button>
@@ -280,7 +280,7 @@ export default function TagingLebihanPage() {
           {loadError ? <div role="alert" className="space-y-2 text-sm text-destructive"><p>{loadError}</p><Button variant="outline" onClick={() => setRefresh((current) => current + 1)}>Cuba semula</Button></div> : <Table>
             <TableHeader><TableRow>
               <TableHead><Checkbox aria-label="Pilih semua rekod pada halaman ini" disabled={loading || busy || !visible.length} checked={allVisibleSelected ? true : visible.some((tag) => selected.includes(tag.id)) ? 'indeterminate' : false} onCheckedChange={(checked) => select(visible.map((tag) => tag.id), checked === true)} /></TableHead>
-              <TableHead>No Tempahan</TableHead><TableHead>Penerima / KV</TableHead><TableHead>Lebihan</TableHead><TableHead>Naskah Guru</TableHead><TableHead>Tindakan</TableHead>
+              <TableHead>No Tempahan</TableHead><TableHead>Penerima / KV</TableHead><TableHead>Lebihan</TableHead><TableHead>Naskhah Guru</TableHead><TableHead>Tindakan</TableHead>
             </TableRow></TableHeader>
             <TableBody>
               {loading ? <TableRow><TableCell colSpan={6} className="py-8 text-center">Memuatkan rekod…</TableCell></TableRow> : !visible.length ? <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">{query ? 'Tiada rekod sepadan dengan carian.' : status === 'active' ? 'Belum ada tag. Cari penerima dan simpan tag pertama.' : 'Belum ada rekod dalam arkib.'}</TableCell></TableRow> : visible.map((tag) => <TableRow key={tag.id}>

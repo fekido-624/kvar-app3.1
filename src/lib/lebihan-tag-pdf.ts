@@ -50,11 +50,11 @@ export async function createLebihanTagDocument(tags: Omit<LebihanTagInput, 'sour
     });
     const slots = [
       { quantity: tag.lebihan, title: 'LEBIHAN', bottom: height / 2 },
-      { quantity: tag.naskahGuru, title: 'NASKAH GURU', bottom: 0 },
+      { quantity: tag.naskahGuru, title: 'NASKHAH GURU', bottom: 0 },
     ];
     for (const slot of slots) {
       if (slot.quantity === 0) continue;
-      if (slot.title === 'NASKAH GURU') {
+      if (slot.title === 'NASKHAH GURU') {
         // A narrow hatched frame stays outside the text area and remains
         // distinctive on monochrome sticker printers.
         const inset = mm(2.5);
@@ -82,19 +82,22 @@ export async function createLebihanTagDocument(tags: Omit<LebihanTagInput, 'sour
       }
       const available = width - margin * 2;
       const content = [
-        { text: `NO. TEMPAHAN: ${tag.noOrder}`, font: regular },
+        { text: `NO. TEMPAHAN: ${tag.noOrder}`, font: bold, sizeOffset: 4 },
         { text: tag.name, font: bold },
         { text: tag.kv, font: bold },
         { text: `${tag.address}, ${tag.postcode}`, font: regular },
         { text: `TEL: ${tag.phone}`, font: regular },
       ];
       let size = 12;
-      let lines: { text: string; font: PDFFont }[] = [];
+      let lines: { text: string; font: PDFFont; size: number }[] = [];
       try {
         for (; size >= 9; size -= 0.5) {
-          lines = content.flatMap((item) => wrap(item.text, item.font, size, available)
-            .map((text) => ({ text, font: item.font })));
-          if (lines.length * size * 1.18 <= height / 2 - margin * 2 - 23) break;
+          lines = content.flatMap((item) => {
+            const lineSize = size + (item.sizeOffset ?? 0);
+            return wrap(item.text, item.font, lineSize, available)
+              .map((text) => ({ text, font: item.font, size: lineSize }));
+          });
+          if (lines.reduce((sum, line) => sum + line.size * 1.18, 0) <= height / 2 - margin * 2 - 23) break;
         }
       } catch {
         throw new Error(`No Tempahan ${tag.noOrder}: terdapat aksara yang tidak disokong dalam PDF. Semak teks penerima.`);
@@ -102,13 +105,14 @@ export async function createLebihanTagDocument(tags: Omit<LebihanTagInput, 'sour
       if (size < 9) {
         throw new Error(`No Tempahan ${tag.noOrder}: teks terlalu panjang untuk separuh A6. Ringkaskan maklumat tag sebelum cetak.`);
       }
-      let y = slot.bottom + height / 2 - margin - size;
+      let y = slot.bottom + height / 2 - margin;
       for (const line of lines) {
-        page.drawText(line.text, { x: margin, y, size, font: line.font });
-        preview.lines.push({ text: line.text, x: margin, y, size, bold: line.font === bold });
-        y -= size * 1.18;
+        y -= line.size;
+        page.drawText(line.text, { x: margin, y, size: line.size, font: line.font });
+        preview.lines.push({ text: line.text, x: margin, y, size: line.size, bold: line.font === bold });
+        y -= line.size * 0.18;
       }
-      const title = `${slot.title}: ${slot.quantity} NASKAH`;
+      const title = `${slot.title}: ${slot.quantity}`;
       const titleSize = 16;
       page.drawText(title, {
         x: (width - bold.widthOfTextAtSize(title, titleSize)) / 2,

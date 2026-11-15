@@ -155,13 +155,13 @@ async function main() {
   assert.equal(pdfResponse.status, 200);
   const pages = await pdfText(new Uint8Array(await pdfResponse.arrayBuffer()));
   assert.equal(pages.length, 3);
-  assert.ok(pages[0].includes('LEBIHAN: 10 NASKAH'));
-  assert.ok(pages[0].includes('NASKAH GURU: 6 NASKAH'));
+  assert.ok(pages[0].includes('LEBIHAN: 10'));
+  assert.ok(pages[0].includes('NASKHAH GURU: 6'));
   assert.ok(pages[0].includes('NAMA PADA TAG SAHAJA'));
   assert.ok(!pages[1].includes('LEBIHAN:'));
-  assert.ok(pages[1].includes('NASKAH GURU: 6 NASKAH'));
-  assert.ok(pages[2].includes('LEBIHAN: 10 NASKAH'));
-  assert.ok(!pages[2].includes('NASKAH GURU:'));
+  assert.ok(pages[1].includes('NASKHAH GURU: 6'));
+  assert.ok(pages[2].includes('LEBIHAN: 10'));
+  assert.ok(!pages[2].includes('NASKHAH GURU:'));
   const previewResponse = await fetch(base + '/api/taging-lebihan/pdf', {
     method: 'POST', headers: { cookie, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ ids: createdTagIds }),
@@ -169,6 +169,10 @@ async function main() {
   assert.equal(previewResponse.status, 200);
   const preview = await previewResponse.json();
   assert.equal(preview.pages.length, 3);
+  const referenceLine = preview.pages[0].lines.find((line: { text: string }) => line.text.startsWith('NO. TEMPAHAN:'));
+  const recipientLine = preview.pages[0].lines.find((line: { text: string }) => line.text === 'NAMA PADA TAG SAHAJA');
+  assert.ok(referenceLine.bold && referenceLine.size > recipientLine.size, 'Order number is larger and bold.');
+  assert.ok(!pages.some((text) => /: \d+ NASKAH/.test(text)), 'Quantities have no trailing unit.');
   assert.deepEqual(await pdfText(Buffer.from(preview.pdf, 'base64')), pages);
   assert.ok(preview.pages[1].lines.every((line: { y: number }) => line.y < preview.pages[1].height / 2));
   assert.ok(preview.pages[2].lines.every((line: { y: number }) => line.y > preview.pages[2].height / 2));
