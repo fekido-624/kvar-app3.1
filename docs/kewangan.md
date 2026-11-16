@@ -53,3 +53,11 @@ perlu dilindungi bersama backup database. Jangan masukkan folder data ke Git.
 Ujian integrasi menggunakan admin local, menyimpan sandaran modul dahulu,
 menambah rekod sementara dan pengguna biasa, lalu memulihkan keadaan asal dalam
 `finally`. Jangan jalankan pada NAS atau data produksi.
+
+## Integration release — 2026-11-16
+
+Integrated into KVar in commit `a708da6`. Local typecheck, 10 finance domain tests,
+HTTP integration tests, tagging regression checks and production build passed.
+Browser checks covered actual form saving, draft retention across categories and
+mobile layout. See `docs/handoff.md` for the verified NAS deployment commands.
+The source is ready for Git pull; this note does not claim NAS has been updated.

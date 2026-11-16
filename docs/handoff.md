@@ -1,112 +1,83 @@
 # KVar 3.1 Handoff Notes
 
-Last updated: 2026-03-16
+Last updated: 2026-11-16
 
-Primary technical synopsis: `docs/project-synopsis.md`
+Primary references: `PROJECT-CONTEXT.md`, `docs/project-synopsis.md`,
+`docs/kewangan.md`.
 
 ## Current status
 
-- KVar 3.1 deployed as separate container on NAS.
-- Legacy instance still exists and runs separately.
-- Main app functionality is currently stable after redeploy.
+- Modul Kewangan telah digabung dan diuji dalam KVar local.
+- Akses admin sahaja: halaman, API, lampiran, dokumen, CSV dan sandaran.
+- Tiga pilihan: Ringkasan, Penulis & Terbitan, Rekod Belanja.
+- Tambah Rekod menggunakan dropdown kategori: Bayaran Penulis, Belanja Umum,
+  Pembelian Aset, Perjalanan dan Upah Pembantu. Input kategori dikekalkan ketika
+  bertukar pilihan dalam halaman yang sama.
+- Rekod baharu bermula kosong. Data contoh daripada lab tidak diimport.
+- Simpanan menggunakan jadual Prisma khusus dan binari lampiran dalam SQLite KVar.
+  Transaksi database melindungi baki bayaran dan nombor rujukan daripada pendua.
+- Bayaran separa, pendahuluan pemilik, bayaran balik, pembatalan, arkib/pulih,
+  carian, cetakan A4, CSV dan sandaran/pemulihan tersedia.
+- Cetakan belanja tidak lagi memaparkan perenggan pecahan perniagaan/peribadi,
+  nota susut nilai aset atau ruang Pengesahan tambahan. Pengesahan penerima upah
+  masih tersedia pada borang Upah Pembantu.
+- Deployment modul Kewangan ke NAS belum dilakukan dalam sesi ini.
 
-## Deployment layout (NAS)
+## Verified active NAS deployment
 
 - Project folder: `/mnt/fekidopool/Web-App/Apps/KVar3.1`
-- New instance container: `kvar-app-31`
-- New instance external port: `3001`
-- Legacy container: `kvar-app` on port `3000`
-- Compose file for new instance: `docker-compose.kvar31.yml`
-- Persistent data dirs:
-  - `docker-data-31/data`
-  - `docker-data-31/templates`
-  - `docker-data-31/public-templates`
+- Git remote: `https://github.com/fekido-624/kvar-app3.1.git`
+- Container: `kvar-app`
+- Host port: `3000`
+- Compose file: `docker-compose.yml`
+- Persistent mounts:
+  - `docker-data/data` → `/app/data`
+  - `docker-data/templates` → `/app/templates`
+  - `docker-data/public-templates` → `/app/public/templates`
 
-## Important fixes already applied
+Earlier instructions involving `kvar-app-31`, port 3001/3002 or
+`docker-compose.kvar31.yml` do not describe the verified active deployment.
 
-1. Route migration
-- Old Receipts route now redirects to `/resit-1`.
-- Sidebar/dashboard/test links updated to use `/resit-1`.
+## Update on NAS
 
-2. Branding and theme
-- UI branding updated from KVar3.0 to KVar3.1.
-- Maroon-based theme applied, logo text kept white.
-
-3. Rekod Jualan linkage bug
-- Resit-1 now sends `penerbitanId` correctly so records appear in Rekod Jualan.
-
-4. Tempahan archived bulk delete
-- Added checkbox multi-select delete in archived/history section.
-
-5. NAS auth/session issue (critical)
-- Symptom: login seemed to succeed but pages returned 401, then auto logout and "Muat Data Gagal".
-- Cause: secure cookie behavior in production while app accessed over HTTP (`http://IP:3001`).
-- Fix implemented:
-  - `COOKIE_SECURE: "false"` added in `docker-compose.kvar31.yml`
-  - `src/lib/auth.ts` updated to respect `COOKIE_SECURE`
-
-## Git and sync notes
-
-- Repo remote: `https://github.com/fekido-624/kvar-app3.1.git`
-- During troubleshooting, one issue was caused by NAS running older commit while local changes were not pushed yet.
-- Rule: always push from laptop first, then pull and rebuild on NAS.
-
-## Standard update flow (laptop -> NAS)
-
-1. On laptop:
-
-```powershell
-git add .
-git commit -m "your message"
-git push origin main
-```
-
-2. On NAS:
+Before updating, stop application writes and take a snapshot/backup of the full
+`docker-data/data` volume, including SQLite WAL files if present. Retain the
+previous application image for rollback.
 
 ```bash
-git config --global --add safe.directory /mnt/fekidopool/Web-App/Apps/KVar3.1
-git pull
-docker compose -f docker-compose.kvar31.yml build --no-cache
-docker compose -f docker-compose.kvar31.yml up -d
+cd /mnt/fekidopool/Web-App/Apps/KVar3.1
+git pull origin main
+docker compose -f docker-compose.yml up -d --build
+docker logs --tail 100 kvar-app
 ```
 
-## Quick verification commands (NAS)
+Startup runs `prisma migrate deploy`. The finance migration adds four new tables;
+existing order/customer tables are not changed. No new port or volume is needed.
+Open the existing KVar URL and select **Kewangan** using an admin account.
 
-```bash
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-curl -s http://localhost:3001/login | grep -Eo "KVar3.1|KVar3.0" | head -n 1
-docker logs --tail 100 kvar-app-31
-```
+The financial backup button covers finance records and evidence only. Restoring
+it does not replace orders/customers. Automatic pre-restore finance snapshots
+are stored under `data/kewangan-backups/` inside the existing data volume.
+For full-system rollback, restore the matching volume snapshot and old image.
+Do not run database reset or seed commands against the active NAS database.
 
-Expected:
-- `kvar-app-31` should map `0.0.0.0:3001->3000/tcp`
-- login page check should return `KVar3.1`
+## Validation completed locally
 
-## Login/bootstrap note
+- `npm run typecheck` passed.
+- `npm run test:finance`: 10 domain tests passed.
+- `npm run test:finance:integration` passed against development and production
+  local servers: admin/non-admin/anonymous access, cross-origin writes, concurrent
+  overpayment prevention, writer workflow, four expense categories, owner refunds,
+  binary evidence, A4, CSV, archive and backup/restore.
+- Temporary integration records and test users were removed; original local
+  financial records were restored. Customer, receipt and tagging counts unchanged.
+- `npm run test:tags` passed, including A6 printing and lifecycle checks.
+- `npm run build` passed. Existing Genkit/OpenTelemetry optional Jaeger exporter
+  warning remains; it does not prevent the build.
+- Browser checks passed for saving through KVar, category switching with drafts
+  retained, and phone layout at 390 px without horizontal page overflow.
 
-- If DB is fresh/empty and admin user is missing:
+## Local access
 
-```bash
-docker exec kvar-app-31 npm run db:seed
-```
-
-Default seed credentials:
-- username: `admin`
-- password: `Password123!`
-
-## Future production hardening
-
-When domain + HTTPS is fully configured:
-- set cookie behavior back to secure mode (remove override or set `COOKIE_SECURE` for HTTPS only)
-- keep AUTH_SECRET strong and private
-- consider backup routine for `docker-data-31/data/dev.db`
-
-## If problems reappear
-
-1. Confirm browser URL is port 3001 (not 3000).
-2. Confirm latest commit exists on NAS (`git log -n 3`).
-3. Rebuild without cache and redeploy.
-4. Check browser DevTools network status codes:
-   - 401: session/cookie/auth issue
-   - 500: server/runtime/db issue
-5. Check container logs immediately after reproducing issue.
+- KVar: `http://localhost:9002/kewangan`
+- Standalone lab remains a separate project; KVar has no runtime dependency on it.
