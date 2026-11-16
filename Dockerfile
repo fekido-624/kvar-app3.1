@@ -1,12 +1,18 @@
-FROM node:20-bookworm-slim AS deps
+FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci
+# Retry transient registry connection resets; preserve package-lock.json.
+RUN npm ci --no-audit --no-fund \
+    --fetch-retries=5 \
+    --fetch-retry-mintimeout=10000 \
+    --fetch-retry-maxtimeout=60000 \
+    --fetch-timeout=300000 \
+    --maxsockets=8
 RUN npx prisma generate
 
-FROM node:20-bookworm-slim AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 
 ARG DATABASE_URL=file:./data/dev.db
@@ -30,7 +36,7 @@ COPY prisma.config.ts ./
 RUN npx prisma generate
 RUN npm run build
 
-FROM node:20-bookworm-slim AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

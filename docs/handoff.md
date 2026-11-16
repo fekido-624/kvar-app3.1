@@ -81,3 +81,26 @@ Do not run database reset or seed commands against the active NAS database.
 
 - KVar: `http://localhost:9002/kewangan`
 - Standalone lab remains a separate project; KVar has no runtime dependency on it.
+
+## Docker install fix — 2026-11-16
+
+NAS build log showed `npm ci` failing with `ECONNRESET` while downloading packages.
+The separate `EBADENGINE` warning reported `@prisma/streams-local` requiring Node 22.
+All three Docker stages now use `node:22-bookworm-slim`. The install retains the
+lockfile and enables five fetch retries, 10–60 second retry delays, a five-minute
+fetch timeout and eight simultaneous sockets. Audit/funding requests are omitted
+from the image installation step; dependency versions are unchanged.
+
+Local npm dry-run with the same flags passed on Node 22. Docker is unavailable on
+the local workstation, so a full Linux container build still needs verification
+on NAS. Retry settings cannot repair a persistent NAS network/proxy failure.
+
+```bash
+cd /mnt/fekidopool/Web-App/Apps/KVar3.1
+git pull origin main
+docker compose --progress plain -f docker-compose.yml build
+docker compose -f docker-compose.yml up -d
+docker logs --tail 100 kvar-app
+```
+
+npm retry options: https://docs.npmjs.com/cli/v10/using-npm/config/#fetch-retries
