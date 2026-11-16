@@ -57,3 +57,6 @@ firestore-debug.log
 /backups/
 /docker-data/
 /docker-data-31/
+
+# finance automatic pre-restore snapshots
+/data/kewangan-backups/

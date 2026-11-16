@@ -102,3 +102,30 @@ model LebihanTag {
   @@index([status, createdAt])
   @@index([noOrder])
 }
+model FinanceConfig {
+  id        String @id
+  payload   String
+  updatedAt DateTime @updatedAt
+}
+
+model FinanceRecord {
+  id        String @id
+  kind      String
+  payload   String
+  createdAt DateTime @default(now())
+  @@index([kind, createdAt])
+}
+
+model FinanceAttachment {
+  id        String @id
+  metadata  String
+  data      Bytes
+  createdAt DateTime @default(now())
+}
+
+model FinanceAudit {
+  id        String @id @default(cuid())
+  actorId   String
+  operation String
+  createdAt DateTime @default(now())
+}

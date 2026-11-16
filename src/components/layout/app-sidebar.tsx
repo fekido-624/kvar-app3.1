@@ -123,6 +123,13 @@ export function AppSidebar() {
               </SidebarMenuItem>
               
               {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === '/kewangan'} tooltip="Kewangan" onClick={handleNavClick} className="text-lg md:text-base">
+                    <Link href="/kewangan"><ReceiptText /><span>Kewangan</span></Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {isAdmin && (
                 <>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={pathname === '/admin/users'} tooltip="Urus Pengguna" onClick={handleNavClick} className="text-lg md:text-base md:[&_svg]:w-5 md:[&_svg]:h-5 [&_svg]:w-6 [&_svg]:h-6">

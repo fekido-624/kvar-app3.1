@@ -13,7 +13,9 @@
     "test:tags": "tsx scripts/test-taging-lebihan.ts",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "test:finance": "node --test scripts/finance-tests/*.test.cjs",
+    "test:finance:integration": "tsx scripts/finance-tests/integration.ts"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.16.1",
