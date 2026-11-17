@@ -1,3 +1,5 @@
+import { ensureTempahanTables as ensureSupportTables } from '@/lib/tempahan-draft-query';
+import { EditTempahanSchema, editTempahanDraft, DraftEditError } from '@/lib/tempahan-edit';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
@@ -8,56 +10,14 @@ type Params = {
 };
 
 const PatchDraftSchema = z.union([
+  EditTempahanSchema,
   z.object({
     action: z.enum(['archive', 'restore']),
-  }),
+  }).strict(),
   z.object({
     bilanganParcel: z.number().int().min(1),
-  }),
+  }).strict(),
 ]);
-
-const ensureSupportTables = async () => {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "DataParcelDraft" (
-      "id" TEXT NOT NULL PRIMARY KEY,
-      "namaCustomer" TEXT NOT NULL,
-      "alamat" TEXT NOT NULL DEFAULT '',
-      "poskod" TEXT NOT NULL DEFAULT '',
-      "kv" TEXT NOT NULL,
-      "noPhone" TEXT NOT NULL,
-      "noOrder" TEXT NOT NULL,
-      "bilanganParcel" INTEGER NOT NULL,
-      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "TempahanDraft" (
-      "id" TEXT NOT NULL PRIMARY KEY,
-      "receiptDraftId" TEXT NOT NULL,
-      "dataParcelDraftId" TEXT NOT NULL,
-      "bilanganAlamat" INTEGER NOT NULL,
-      "status" TEXT NOT NULL DEFAULT 'active',
-      "archivedAt" DATETIME,
-      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE("receiptDraftId")
-    )
-  `);
-
-  const columns = (await prisma.$queryRawUnsafe(`PRAGMA table_info("TempahanDraft")`)) as Array<{ name: string }>;
-  const hasStatus = columns.some((column) => column.name === 'status');
-  const hasArchivedAt = columns.some((column) => column.name === 'archivedAt');
-
-  if (!hasStatus) {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "TempahanDraft" ADD COLUMN "status" TEXT NOT NULL DEFAULT 'active'`);
-  }
-
-  if (!hasArchivedAt) {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "TempahanDraft" ADD COLUMN "archivedAt" DATETIME`);
-  }
-};
 
 export async function PATCH(request: Request, { params }: Params) {
   const currentUser = await requireCurrentUser();
@@ -78,6 +38,7 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   try {
+    if ('action' in parsed.data && parsed.data.action === 'edit') return NextResponse.json(await editTempahanDraft(id, parsed.data));
     if ('bilanganParcel' in parsed.data) {
       const rows = (await prisma.$queryRawUnsafe(
         `
@@ -152,8 +113,9 @@ export async function PATCH(request: Request, { params }: Params) {
       id
     );
     return NextResponse.json({ success: true, action });
-  } catch {
-    return NextResponse.json({ error: 'Failed to update tempahan draft status.' }, { status: 500 });
+  } catch (error) {
+    if (error instanceof DraftEditError) return NextResponse.json({ error: error.message }, { status: error.status });
+    return NextResponse.json({ error: 'action' in parsed.data && parsed.data.action === 'edit' ? 'Gagal menyimpan suntingan tempahan. Tiada perubahan disimpan.' : 'Failed to update tempahan draft status.' }, { status: 500 });
   }
 }
 

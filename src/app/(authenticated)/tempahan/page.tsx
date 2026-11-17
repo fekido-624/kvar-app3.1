@@ -1,9 +1,10 @@
 "use client";
+import { TempahanEditDialog } from '@/components/tempahan-edit-dialog';
 import { SearchInput } from '@/components/search-input';
 
 import { useEffect, useMemo, useState } from 'react';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { Archive, Download, FileArchive, Printer, RotateCcw, Save, Trash2 } from 'lucide-react';
+import { Archive, Download, FileArchive, Pencil, Printer, RotateCcw, Save, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -35,6 +36,11 @@ import {
 type TempahanDraft = {
   id: string;
   receiptDraftId: string;
+  penerbitanId: string;
+  tajuk: string;
+  semester: string;
+  tarikh: string;
+  revision: string;
   noResit: string;
   namaPenerima: string;
   namaKolejVokasional: string;
@@ -107,6 +113,11 @@ const resolveNoOrder = (item: { noOrder: string; noResit: string }) => {
 const normalizeDraft = (item: Record<string, unknown>): TempahanDraft => ({
   id: String(item.id ?? ''),
   receiptDraftId: String(item.receiptDraftId ?? ''),
+  penerbitanId: String(item.penerbitanId ?? ''),
+  tajuk: String(item.tajuk ?? ''),
+  semester: String(item.semester ?? ''),
+  tarikh: new Date(typeof item.tarikh === 'number' ? item.tarikh : String(item.tarikh)).toISOString().slice(0,10),
+  revision: String(item.revision ?? ''),
   noResit: String(item.noResit ?? ''),
   namaPenerima: String(item.namaPenerima ?? ''),
   namaKolejVokasional: String(item.namaKolejVokasional ?? ''),
@@ -127,6 +138,7 @@ const normalizeDraft = (item: Record<string, unknown>): TempahanDraft => ({
 
 export default function TempahanPage() {
   const [form, setForm] = useState(emptyForm);
+  const [editDraft, setEditDraft] = useState<TempahanDraft | null>(null);
   const [lastHargaSeunit, setLastHargaSeunit] = useState(emptyForm.hargaSeunit);
   const [draftStatusView, setDraftStatusView] = useState<'active' | 'archived'>('active');
   const [drafts, setDrafts] = useState<TempahanDraft[]>([]);
@@ -1856,12 +1868,13 @@ export default function TempahanPage() {
                       <TableHead className="w-[92px] text-center whitespace-nowrap">Bil. Alamat</TableHead>
                       <TableHead className="w-[92px] text-center whitespace-nowrap">Bil. Parcel</TableHead>
                       <TableHead className="text-right whitespace-nowrap">Jumlah</TableHead>
+                      <TableHead>Tindakan</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredDrafts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">
                           Belum ada draf tempahan.
                         </TableCell>
                       </TableRow>
@@ -1895,6 +1908,7 @@ export default function TempahanPage() {
                           <TableCell className="text-right whitespace-nowrap">
                             {toCurrency(item.kuantiti * item.hargaSeunit + item.hargaPostage)}
                           </TableCell>
+                          <TableCell>{item.status === 'active' ? <Button variant="outline" size="sm" onClick={() => setEditDraft(item)} aria-label={`Edit draf ${item.noResit}`}><Pencil className="mr-1 h-4 w-4" />Edit</Button> : <span className="text-xs text-muted-foreground">Pulihkan untuk edit</span>}</TableCell>
                         </TableRow>
                       ))
                     )}
@@ -1905,6 +1919,7 @@ export default function TempahanPage() {
           </Card>
         </div>
       </div>
+      <TempahanEditDialog draft={editDraft} publications={penerbitanOptions} onClose={() => setEditDraft(null)} onSaved={async () => { await loadDrafts(); toast({ title: 'Tempahan Dikemas Kini', description: 'Resit dan parcel berkaitan telah diselaraskan. Semak taging lama dan jana semula dokumen yang terjejas.' }); }} />
     </div>
   );
 }

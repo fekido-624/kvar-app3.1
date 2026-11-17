@@ -15,7 +15,8 @@
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "test:finance": "node --test scripts/finance-tests/*.test.cjs",
-    "test:finance:integration": "tsx scripts/finance-tests/integration.ts"
+    "test:finance:integration": "tsx scripts/finance-tests/integration.ts",
+    "test:tempahan-edit": "tsx scripts/test-tempahan-edit.ts"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.16.1",
