@@ -1,6 +1,6 @@
 # KVar 3.1 Handoff Notes
 
-Last updated: 2026-11-16
+Last updated: 2026-11-17
 
 Primary references: `PROJECT-CONTEXT.md`, `docs/project-synopsis.md`,
 `docs/kewangan.md`.
@@ -21,7 +21,7 @@ Primary references: `PROJECT-CONTEXT.md`, `docs/project-synopsis.md`,
 - Cetakan belanja tidak lagi memaparkan perenggan pecahan perniagaan/peribadi,
   nota susut nilai aset atau ruang Pengesahan tambahan. Pengesahan penerima upah
   masih tersedia pada borang Upah Pembantu.
-- Deployment modul Kewangan ke NAS belum dilakukan dalam sesi ini.
+- Kewangan berjaya dideploy ke NAS pada 2026-11-16; migration berjaya dan login domain awam disahkan.
 
 ## Verified active NAS deployment
 
@@ -104,3 +104,11 @@ docker logs --tail 100 kvar-app
 ```
 
 npm retry options: https://docs.npmjs.com/cli/v10/using-npm/config/#fetch-retries
+
+## Edit Draf Tempahan — 2026-11-17
+
+Feature commit: `e41eb7c`. Draf aktif kini mempunyai butang Edit; No. Tempahan dan ID resit kekal. Perubahan resit/parcel disimpan dalam satu transaksi, dengan perlindungan konflik suntingan. Penerbitan dan nilai jualan diselaraskan; profil pelanggan dan taging lama dikekalkan. Postage RM0 mengeluarkan draf parcel penghantaran, manakala postage berbayar mewujudkan parcel jika belum ada. Tiada migrasi database baharu.
+
+Semakan local lulus: `npm run typecheck`, `npm run test:tempahan-edit`, `npm run test:tags`, `npm run build`. Ujian suntingan turut lulus pada server produksi local. Browser mengesahkan Batal tidak menyimpan, Simpan mengemas kini rekod dan popup muat pada telefon 390px. Rujukan: `docs/tempahan-edit.md`.
+
+Status deployment Edit Draf Tempahan: menunggu kemas kini dan pengesahan NAS.
