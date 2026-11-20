@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { isAllowedFinanceOrigin as allowed } from '../src/lib/finance/origin';
+const internal='http://localhost:3000',publicUrl='https://kvar.iztech.uk';
+assert.equal(allowed(publicUrl,internal,publicUrl),true,'HTTPS public origin behind HTTP proxy');
+assert.equal(allowed('http://localhost:9002','http://localhost:9002',''),true,'direct local origin');
+for(const origin of ['https://untrusted.invalid','https://kvar.iztech.uk.evil.invalid','http://kvar.iztech.uk','https://kvar.iztech.uk:8443','https://kvar.iztech.uk@evil.invalid','null','','https://kvar.iztech.uk/other'])assert.equal(allowed(origin,internal,publicUrl),false,origin);
+assert.equal(allowed(publicUrl,internal,''),false,'unconfigured external origin denied');
+assert.equal(allowed(publicUrl,internal,publicUrl+'/kewangan'),false,'invalid configuration does not widen access');
+assert.equal(allowed(null,internal,publicUrl),true,'non-browser clients still checked for auth and JSON by route');
+console.log('PASS proxy public origin, direct local access, exact scheme/host/port checks and untrusted origins');

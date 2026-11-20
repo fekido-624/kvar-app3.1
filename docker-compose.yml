@@ -12,6 +12,7 @@ services:
       PORT: 3000
       DATABASE_URL: file:./data/dev.db
       AUTH_SECRET: ${AUTH_SECRET}
+      APP_ORIGIN: ${APP_ORIGIN:-https://kvar.iztech.uk}
       COOKIE_SECURE: "false"
       GEMINI_API_KEY: ""
     volumes:

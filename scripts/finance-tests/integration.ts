@@ -8,7 +8,7 @@ async function main(){
  if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw new Error('Integration tests are local-only.');
  const admin=await prisma.user.findFirstOrThrow({where:{role:'admin'}});
  async function cookie(id:string){return 'accesspilot_session='+await new SignJWT({userId:id}).setProtectedHeader({alg:'HS256'}).setExpirationTime('10m').sign(new TextEncoder().encode(process.env.AUTH_SECRET));}
- const headers={cookie:await cookie(admin.id),'content-type':'application/json'};
+ const headers={cookie:await cookie(admin.id),'content-type':'application/json',...(process.env.APP_ORIGIN?{origin:process.env.APP_ORIGIN}:{})};
  async function raw(path:string,method='GET',input?:unknown,custom:Record<string,string>=headers){return fetch(base+'/api/kewangan'+path,{method,headers:custom,...(input===undefined?{}:{body:JSON.stringify(input)})});}
  async function api(path:string,method='GET',input?:unknown){const r=await raw(path,method,input);const data=await r.json();assert.ok(r.ok,JSON.stringify(data));return data;}
  const baseline=await api('/api/backup');

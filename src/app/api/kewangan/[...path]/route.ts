@@ -1,3 +1,4 @@
+import { isAllowedFinanceOrigin } from '@/lib/finance/origin';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { NextRequest } from 'next/server';
@@ -15,7 +16,7 @@ async function handler(request: NextRequest, context: { params: Promise<{ path: 
   const changing = request.method !== 'GET';
   if (changing) {
     const origin = request.headers.get('origin');
-    if (origin && origin !== request.nextUrl.origin) return Response.json({ error: 'Origin tidak dibenarkan.' }, { status: 403 });
+    if (!isAllowedFinanceOrigin(origin, request.nextUrl.origin)) return Response.json({ error: 'Origin tidak dibenarkan.' }, { status: 403 });
     if (!request.headers.get('content-type')?.startsWith('application/json')) return Response.json({ error: 'Permintaan mesti JSON.' }, { status: 415 });
   }
   const { path: segments } = await context.params;

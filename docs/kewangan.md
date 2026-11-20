@@ -61,3 +61,26 @@ HTTP integration tests, tagging regression checks and production build passed.
 Browser checks covered actual form saving, draft retention across categories and
 mobile layout. See `docs/handoff.md` for the verified NAS deployment commands.
 The source is ready for Git pull; this note does not claim NAS has been updated.
+
+## Fix origin di belakang reverse proxy — 2026-11-20
+
+Permintaan simpanan HTTPS melalui domain awam boleh ditolak dengan mesej
+`Origin tidak dibenarkan` kerana URL dalaman Next.js menggunakan HTTP/localhost.
+Semakan kini menerima origin dalaman yang sama atau origin awam tepat daripada
+`APP_ORIGIN`. Ia tidak mempercayai sebarang nilai forwarded-host secara automatik.
+Login admin dan syarat JSON kekal berkuat kuasa; domain lain masih ditolak.
+
+`docker-compose.yml` menetapkan `APP_ORIGIN` kepada `https://kvar.iztech.uk`
+secara default. Jika menggunakan domain lain, tetapkan `APP_ORIGIN` dalam `.env`
+kepada origin sebenar (scheme + host + port jika bukan port standard), tanpa path.
+Selepas pull, rebuild dan recreate container supaya konfigurasi ini dimuatkan.
+Tiada perubahan atau reset database diperlukan.
+
+Ujian khusus: `npm run test:finance:origin`. Untuk menguji aliran HTTP di belakang
+proxy secara local, jalankan server dan ujian integrasi dengan `APP_ORIGIN` yang
+sama; skrip integrasi menghantar origin tersebut pada permintaan sebenar.
+
+Pengesahan pembetulan: ujian `test:finance:origin`, TypeScript dan build produksi
+lulus. Ujian HTTP tambahan dengan server local yang menggunakan origin proxy
+belum dijalankan: semakan kelulusan automatik menolak arahan memulakan server
+ujian tanpa memberikan sebab khusus. Deployment NAS belum dilakukan untuk fix ini.
